@@ -3,3 +3,5 @@ __pycache__/
 *.pyc
 .env
 *.prn
+*.db
+.pytest_cache/
