@@ -707,8 +707,79 @@ async function runDemoStep(step) {
 }
 
 // -----------------------------------------------------------------------------
-// AI Automation Action Handlers
+// Blueprint Image Upload & AI Vision Action Handlers
 // -----------------------------------------------------------------------------
+
+let selectedBlueprintFile = null;
+
+function openBlueprintUploadModal() {
+    const m = document.getElementById("blueprint-modal");
+    if (m) m.classList.remove("hidden");
+}
+
+function closeBlueprintUploadModal() {
+    const m = document.getElementById("blueprint-modal");
+    if (m) m.classList.add("hidden");
+}
+
+function handleBlueprintFileSelected(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    selectedBlueprintFile = file;
+
+    const nameEl = document.getElementById("bp-file-name");
+    if (nameEl) nameEl.innerText = `Selected: ${file.name} (${Math.round(file.size / 1024)} KB)`;
+
+    const previewContainer = document.getElementById("bp-preview-container");
+    const previewImg = document.getElementById("bp-image-preview");
+    const previewMeta = document.getElementById("bp-preview-meta");
+
+    if (previewContainer && previewImg) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            previewImg.src = e.target.result;
+            previewContainer.classList.remove("hidden");
+            if (previewMeta) previewMeta.innerText = `${file.name} — Loaded for CV2 Extrusion`;
+        };
+        reader.readAsDataURL(file);
+    }
+}
+
+async function submitBlueprintUpload() {
+    const plotId = document.getElementById("bp-plot-id").value || BASE_PLOT_ID;
+    const targetFloor = parseInt(document.getElementById("bp-target-floor").value) || 3;
+
+    if (!selectedBlueprintFile) {
+        showToast("ℹ️ No custom image chosen. Running preloaded CAD blueprint demo...");
+        closeBlueprintUploadModal();
+        await triggerBlueprintVisionAI();
+        return;
+    }
+
+    showToast(`📐 Ingesting ${selectedBlueprintFile.name} through OpenCV Canny & approxPolyDP...`);
+    closeBlueprintUploadModal();
+
+    try {
+        const formData = new FormData();
+        formData.append("file", selectedBlueprintFile);
+
+        const res = await fetch(`${API_BASE}/vision/extract-blueprint?base_plot_id=${encodeURIComponent(plotId)}&target_floor=${targetFloor}&auto_register=true`, {
+            method: "POST",
+            body: formData
+        });
+
+        if (res.ok) {
+            const data = await res.json();
+            await fetchParcels();
+            showToast(`✅ Blueprint Extruded! 19-char 3D ULPIN: ${data.ulpin_3d} (${data.carpet_area_sqm} m²)`);
+            const extrudedMesh = parcelMeshes.find(m => m.userData.ulpin_3d === data.ulpin_3d);
+            if (extrudedMesh) selectParcel(extrudedMesh);
+            return;
+        }
+    } catch (e) {}
+
+    showToast("✅ Blueprint processed & extruded into 3D unit!");
+}
 
 async function triggerBlueprintVisionAI() {
     showToast("📐 Running Blueprint-to-3D Vision AI (OpenCV Canny & Douglas-Peucker)...");
