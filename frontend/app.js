@@ -1235,4 +1235,36 @@ function animate() {
     renderer.render(scene, camera);
 }
 
-window.onload = init;
+// Expose all UI handler functions globally on window object for inline HTML event listeners
+window.runDemoStep = runDemoStep;
+window.openBlueprintUploadModal = openBlueprintUploadModal;
+window.closeBlueprintUploadModal = closeBlueprintUploadModal;
+window.handleBlueprintFileSelected = handleBlueprintFileSelected;
+window.submitBlueprintUpload = submitBlueprintUpload;
+window.triggerBlueprintVisionAI = triggerBlueprintVisionAI;
+window.openTaxFraudModal = openTaxFraudModal;
+window.closeTaxFraudModal = closeTaxFraudModal;
+window.runTaxAudit = runTaxAudit;
+window.openDeedOcrModal = openDeedOcrModal;
+window.closeDeedOcrModal = closeDeedOcrModal;
+window.runDeedOcr = runDeedOcr;
+window.openUtilityEstimatorModal = openUtilityEstimatorModal;
+window.closeUtilityModal = closeUtilityModal;
+window.runUtilityEstimation = runUtilityEstimation;
+window.seedUrbanComplex = seedUrbanComplex;
+window.openRegisterModal = openRegisterModal;
+window.closeRegisterModal = closeRegisterModal;
+window.handleRegisterSubmit = handleRegisterSubmit;
+window.toggleNDRFRescueMode = toggleNDRFRescueMode;
+window.toggleDensityHeatmap = toggleDensityHeatmap;
+window.filterStrata = filterStrata;
+window.closeInspector = closeInspector;
+window.copyUlpin = copyUlpin;
+window.downloadExport = downloadExport;
+window.printTitleCertificate = printTitleCertificate;
+
+if (document.readyState === "complete" || document.readyState === "interactive") {
+    setTimeout(init, 100);
+} else {
+    window.addEventListener("DOMContentLoaded", () => setTimeout(init, 100));
+}

@@ -48,6 +48,20 @@ os.makedirs(FRONTEND_DIR, exist_ok=True)
 # Mount static frontend assets
 app.mount("/frontend", StaticFiles(directory=FRONTEND_DIR), name="frontend")
 
+@app.get("/app.js")
+def serve_app_js():
+    js_path = os.path.join(FRONTEND_DIR, "app.js")
+    if os.path.exists(js_path):
+        return FileResponse(js_path, media_type="application/javascript")
+    return {"error": "app.js not found"}
+
+@app.get("/sample_blueprint.png")
+def serve_sample_blueprint():
+    img_path = os.path.join(FRONTEND_DIR, "sample_blueprint.png")
+    if os.path.exists(img_path):
+        return FileResponse(img_path, media_type="image/png")
+    return {"error": "sample_blueprint.png not found"}
+
 @app.get("/")
 def serve_index():
     index_path = os.path.join(FRONTEND_DIR, "index.html")
