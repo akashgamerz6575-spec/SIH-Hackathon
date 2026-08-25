@@ -1,5 +1,6 @@
 """
 Pydantic Schemas for 3D ULPIN Cadastral REST API
+Covers GIS Spatial units, Demographics, NDRF Disaster Rescue, AI Vision, Tax Fraud, Deed OCR, and Utility Estimation.
 """
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
@@ -15,18 +16,28 @@ class BoundingBox3DSchema(BaseModel):
 class ParcelCreateSchema(BaseModel):
     state_code: str = Field("KA", description="2-letter State code (e.g. KA, MH, DL)")
     district_code: str = Field("560", description="3-digit District code")
+    base_plot_id: Optional[str] = Field("12A34B56C78D90", description="14-char base cadastral parcel ID")
     floor_level: int = Field(..., description="Floor number (>0 for floors, <0 for basements, 0 for ground)")
     unit_label: str = Field(..., description="Unit identifier (e.g. Flat-302, Penthouse-A)")
     owner_name: str = Field(..., description="Full legal name of title holder")
     base_survey_no: str = Field("SY-142/2A", description="Underlying 2D cadastral land parcel survey number")
     property_type: Optional[str] = Field("Residential Apartment", description="Cadastral classification")
     bounds: BoundingBox3DSchema
+    seniors_60plus: Optional[int] = Field(0, description="Senior citizens (>= 60 years)")
+    adults: Optional[int] = Field(2, description="Adult occupants")
+    infants_kids: Optional[int] = Field(0, description="Infants and kids (<12 years)")
+    total_occupants: Optional[int] = Field(2, description="Total family members")
+    electricity_kwh: Optional[float] = Field(240.0, description="Monthly electricity kWh")
+    water_liters: Optional[float] = Field(9500.0, description="Monthly water liters")
+    declared_floors: Optional[int] = Field(4, description="Declared floors in permit")
+    actual_floors: Optional[int] = Field(4, description="Actual physical floors")
     metadata_json: Optional[Dict[str, Any]] = Field(default_factory=dict)
 
 class ParcelResponseSchema(BaseModel):
     id: str
     ulpin_3d: str
     base_survey_no: str
+    base_plot_id: str
     state_code: str
     district_code: str
     floor_level: int
@@ -35,6 +46,15 @@ class ParcelResponseSchema(BaseModel):
     property_type: str
     volume_m3: float
     bounds: BoundingBox3DSchema
+    seniors_60plus: int
+    adults: int
+    infants_kids: int
+    total_occupants: int
+    electricity_kwh: float
+    water_liters: float
+    declared_floors: int
+    actual_floors: int
+    is_vulnerable_for_rescue: bool
     metadata_json: Dict[str, Any]
     encumbrance_status: str
     created_at: float
@@ -76,3 +96,48 @@ class LidarIngestResponseSchema(BaseModel):
     quality_metrics: Dict[str, float]
     strata: List[FloorStratumSchema]
     draft_parcels_registered: int
+
+# AI & Demographics Schemas
+
+class BlueprintExtractionRequestSchema(BaseModel):
+    base_plot_id: Optional[str] = "12A34B56C78D90"
+    target_floor: Optional[int] = 3
+    floor_height: Optional[float] = 3.2
+
+class TaxAnomalyAuditRequestSchema(BaseModel):
+    base_plot_id: Optional[str] = "12A34B56C78D90"
+    declared_floors: Optional[int] = 3
+    physical_floors: Optional[int] = 5
+    declared_volume_m3: Optional[float] = 1150.0
+    physical_volume_m3: Optional[float] = 1920.0
+
+class DeedExtractRequestSchema(BaseModel):
+    deed_text: Optional[str] = None
+    base_plot_id: Optional[str] = "12A34B56C78D90"
+
+class UtilityEstimateRequestSchema(BaseModel):
+    ulpin_3d: Optional[str] = "12A34B56C78D90-A003"
+    unit_label: Optional[str] = "Flat-301"
+    electricity_kwh: float = 850.0
+    water_liters: float = 32000.0
+    declared_occupants: int = 2
+
+class NDRFFloorSummarySchema(BaseModel):
+    floor_level: int
+    floor_label: str
+    total_units: int
+    vulnerable_units: int
+    seniors_count: int
+    infants_kids_count: int
+    total_trapped_occupants: int
+    is_high_risk: bool
+    units: List[Dict[str, Any]]
+
+class NDRFRescueSummarySchema(BaseModel):
+    total_floors: int
+    total_vulnerable_floors: int
+    total_seniors_trapped: int
+    total_infants_trapped: int
+    total_occupants: int
+    incident_commander_alert: str
+    floors: List[NDRFFloorSummarySchema]

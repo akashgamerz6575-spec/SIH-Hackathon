@@ -3,6 +3,7 @@ Cryptographic 3D ULPIN (Unique Land Parcel Identification Number) Engine
 Extended for Volumetric & Vertical Strata Units under ISO 19152 / DoLR Bhu-Aadhaar Guidelines.
 """
 import hashlib
+import re
 from dataclasses import dataclass
 from typing import Dict, Any, Optional
 
@@ -27,6 +28,7 @@ class SpatialCoordinates3D:
     def centroid_z(self) -> float:
         return (self.min_z + self.max_z) / 2.0
 
+
 def format_floor_token(floor_level: int) -> str:
     """Formats floor level into standard cadastral layer tokens (e.g., F01, B02, G00)."""
     if floor_level > 0:
@@ -36,6 +38,7 @@ def format_floor_token(floor_level: int) -> str:
     else:
         return "G00"
 
+
 def format_elevation_token(z_msl: float) -> str:
     """Formats Mean Sea Level (MSL) elevation in meters into standardized Z token."""
     z_int = int(round(z_msl))
@@ -43,6 +46,60 @@ def format_elevation_token(z_msl: float) -> str:
         return f"Z{z_int:02d}"
     else:
         return f"ZNEG{abs(z_int):02d}"
+
+
+def generate_19char_3d_ulpin(base_plot: str, floor_level: int) -> str:
+    """
+    Generates a 19-character 3D ULPIN identifier adhering to Ministry of Rural Development specifications:
+    Format: <14-Digit-Base-Plot>-<FloorTag> (Total: 14 + 1 + 4 = 19 characters)
+    
+    Positive / Above-Ground Floors:
+      Floor 3 -> 12A34B56C78D90-A003
+      Floor 0 (Ground) -> 12A34B56C78D90-A000
+    
+    Subsurface Basements:
+      Basement -1 -> 12A34B56C78D90-B001
+      Basement -2 -> 12A34B56C78D90-B002
+    """
+    clean_base = re.sub(r"[^A-Za-z0-9]", "", base_plot).upper()
+    if len(clean_base) < 14:
+        # Pad deterministically to 14 alphanumeric characters
+        clean_base = clean_base.ljust(14, "0")
+    elif len(clean_base) > 14:
+        clean_base = clean_base[:14]
+
+    if floor_level >= 0:
+        floor_tag = f"A{floor_level:03d}"
+    else:
+        floor_tag = f"B{abs(floor_level):03d}"
+
+    return f"{clean_base}-{floor_tag}"
+
+
+def parse_19char_3d_ulpin(ulpin: str) -> Dict[str, Any]:
+    """Parses a 19-character 3D ULPIN string into base plot and floor level."""
+    cleaned = ulpin.strip().upper()
+    parts = cleaned.split("-")
+    if len(parts) != 2 or len(cleaned) != 19 or len(parts[0]) != 14 or len(parts[1]) != 4:
+        return {"valid": False, "error": "Invalid 19-character 3D ULPIN format"}
+
+    base_plot = parts[0]
+    tag = parts[1]
+    prefix = tag[0]
+    try:
+        level_num = int(tag[1:])
+        floor_level = level_num if prefix == "A" else -level_num
+        return {
+            "valid": True,
+            "base_plot": base_plot,
+            "floor_tag": tag,
+            "floor_level": floor_level,
+            "is_subsurface": prefix == "B",
+            "standard": "19-Char 3D Bhu-Aadhaar"
+        }
+    except ValueError:
+        return {"valid": False, "error": "Malformed floor digits in ULPIN"}
+
 
 def generate_3d_ulpin(
     state_code: str,
@@ -85,9 +142,16 @@ def generate_3d_ulpin(
 
     return f"IN-{state_clean}-{district_clean}-{floor_token}-{z_token}-{spatial_token}"
 
+
 def parse_3d_ulpin(ulpin: str) -> Dict[str, Any]:
-    """Parses a 3D ULPIN string into its constituent cadastral tokens."""
-    parts = ulpin.strip().split("-")
+    """Parses either 19-char 3D ULPIN or ISO tokenized 3D ULPIN string."""
+    cleaned = ulpin.strip()
+    if "-" in cleaned and len(cleaned) == 19:
+        p19 = parse_19char_3d_ulpin(cleaned)
+        if p19.get("valid"):
+            return p19
+
+    parts = cleaned.split("-")
     if len(parts) < 6 or parts[0] != "IN":
         return {"valid": False, "error": "Malformed 3D ULPIN token format"}
 

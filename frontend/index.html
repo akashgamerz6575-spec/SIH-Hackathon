@@ -3,12 +3,14 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>3D ULPIN & Volumetric Cadastral Mapping Engine (SIH26011)</title>
+    <title>3D ULPIN & Volumetric Cadastral System (SIH26011)</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Three.js and OrbitControls -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <!-- QRCode.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
         body { margin: 0; overflow: hidden; background-color: #050811; font-family: 'Inter', system-ui, -apple-system, sans-serif; }
         #canvas-container { width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; z-index: 1; }
@@ -22,8 +24,13 @@
         .custom-scroll::-webkit-scrollbar { width: 4px; }
         .custom-scroll::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.6); }
         .custom-scroll::-webkit-scrollbar-thumb { background: #334155; border-radius: 2px; }
-        .glow-cyan { box-shadow: 0 0 15px rgba(56, 189, 248, 0.35); }
         .glow-emerald { box-shadow: 0 0 15px rgba(16, 185, 129, 0.4); }
+        .glow-red { box-shadow: 0 0 20px rgba(239, 68, 68, 0.7); }
+        .pulse-alert { animation: pulseRed 1.2s infinite; }
+        @keyframes pulseRed {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.6; transform: scale(1.02); }
+        }
     </style>
 </head>
 <body class="text-slate-100 select-none">
@@ -31,94 +38,167 @@
     <!-- 3D WebGL Canvas Viewport -->
     <div id="canvas-container"></div>
 
-    <!-- Top Left Header & System Control Center -->
-    <header class="absolute top-4 left-4 z-10 glass-panel rounded-2xl p-4 w-96 max-w-[calc(100vw-2rem)] pointer-events-auto">
+    <!-- Top 6-Step MVP Jury Demo Walkthrough Bar -->
+    <nav class="absolute top-3 left-1/2 transform -translate-x-1/2 z-20 glass-panel rounded-2xl px-4 py-2 pointer-events-auto border border-indigo-500/30 flex items-center gap-2 shadow-2xl">
+        <span class="text-[10px] uppercase font-extrabold tracking-wider text-indigo-400 mr-1 flex items-center gap-1">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+            6-Step Demo:
+        </span>
+        <button type="button" onclick="runDemoStep(1)" id="step-btn-1" class="demo-step-btn px-2.5 py-1 rounded-lg text-xs font-bold bg-indigo-600 text-white transition hover:bg-indigo-500">1. Base Plot</button>
+        <button type="button" onclick="runDemoStep(2)" id="step-btn-2" class="demo-step-btn px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-800 text-slate-300 transition hover:bg-slate-700">2. Vision AI</button>
+        <button type="button" onclick="runDemoStep(3)" id="step-btn-3" class="demo-step-btn px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-800 text-slate-300 transition hover:bg-slate-700">3. 19-Char ULPIN</button>
+        <button type="button" onclick="runDemoStep(4)" id="step-btn-4" class="demo-step-btn px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-800 text-slate-300 transition hover:bg-slate-700">4. 🚨 NDRF Rescue</button>
+        <button type="button" onclick="runDemoStep(5)" id="step-btn-5" class="demo-step-btn px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-800 text-slate-300 transition hover:bg-slate-700">5. QR Passport</button>
+        <button type="button" onclick="runDemoStep(6)" id="step-btn-6" class="demo-step-btn px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-800 text-slate-300 transition hover:bg-slate-700">6. Title Card</button>
+    </nav>
+
+    <!-- Top Left Header & Main Control Center -->
+    <header class="absolute top-16 left-4 z-10 glass-panel rounded-2xl p-4 w-96 max-w-[calc(100vw-2rem)] pointer-events-auto">
         <div class="flex items-center justify-between">
             <div class="flex items-center space-x-2.5">
                 <span class="relative flex h-3 w-3">
                     <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                    <span class="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                    <span id="status-indicator" class="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
                 </span>
                 <div>
                     <h1 class="text-sm font-extrabold tracking-tight text-white flex items-center gap-1.5">
                         3D ULPIN Spatial Engine
                         <span class="bg-indigo-500/20 text-indigo-300 text-[10px] px-1.5 py-0.5 rounded font-mono border border-indigo-500/30">SIH26011</span>
                     </h1>
-                    <p class="text-[11px] text-slate-400 font-medium">Ministry of Rural Development • ISO 19152 (LADM)</p>
+                    <p class="text-[11px] text-slate-400 font-medium">Bhu-Aadhaar 3D • ISO 19152 (LADM) • DoLR</p>
                 </div>
+            </div>
+            <div class="text-[10px] font-mono text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800">
+                Plot: 12A34B56C78D90
             </div>
         </div>
 
-        <!-- Quick Telemetry Bar -->
-        <div class="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-slate-800/80 text-center">
+        <!-- Quick Telemetry Grid -->
+        <div class="grid grid-cols-4 gap-1.5 mt-3 pt-3 border-t border-slate-800/80 text-center">
             <div class="bg-slate-900/80 p-1.5 rounded-lg border border-slate-800">
-                <div class="text-[10px] text-slate-400 font-medium">3D Units</div>
-                <div id="stat-units-count" class="text-xs font-bold text-emerald-400">--</div>
+                <div class="text-[9px] text-slate-400 font-medium">3D Units</div>
+                <div id="stat-units-count" class="text-xs font-bold text-emerald-400">18</div>
             </div>
             <div class="bg-slate-900/80 p-1.5 rounded-lg border border-slate-800">
-                <div class="text-[10px] text-slate-400 font-medium">Total Volume</div>
-                <div id="stat-total-vol" class="text-xs font-bold text-sky-400">-- m³</div>
+                <div class="text-[9px] text-slate-400 font-medium">Volume</div>
+                <div id="stat-total-vol" class="text-xs font-bold text-sky-400">1,920 m³</div>
             </div>
             <div class="bg-slate-900/80 p-1.5 rounded-lg border border-slate-800">
-                <div class="text-[10px] text-slate-400 font-medium">Topology</div>
-                <div class="text-xs font-bold text-emerald-400 flex items-center justify-center gap-1">
-                    <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path></svg>
-                    0 Overlaps
-                </div>
+                <div class="text-[9px] text-slate-400 font-medium">Seniors (60+)</div>
+                <div id="stat-seniors-count" class="text-xs font-bold text-amber-400">11</div>
+            </div>
+            <div class="bg-slate-900/80 p-1.5 rounded-lg border border-slate-800">
+                <div class="text-[9px] text-slate-400 font-medium">Kids (<12)</div>
+                <div id="stat-kids-count" class="text-xs font-bold text-rose-400">9</div>
             </div>
         </div>
 
-        <!-- Action Buttons -->
-        <div class="mt-3 space-y-2">
-            <div class="flex gap-2">
-                <button onclick="seedUrbanComplex()" class="flex-1 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white font-semibold py-1.5 px-3 rounded-lg text-xs transition duration-200 shadow-md flex items-center justify-center gap-1.5">
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
-                    Seed Urban Complex
-                </button>
-                <button onclick="triggerLidarIngest()" class="bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 font-semibold py-1.5 px-3 rounded-lg text-xs transition border border-emerald-500/40 flex items-center justify-center gap-1">
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
-                    Drone LiDAR Ingest
-                </button>
-            </div>
-            <button onclick="openRegisterModal()" class="w-full bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium py-1.5 px-3 rounded-lg text-xs transition border border-slate-700/80 flex items-center justify-center gap-1.5">
-                <svg class="w-3.5 h-3.5 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                Register Custom 3D Cadastral Unit
+        <!-- Mode Toggle Switch Buttons -->
+        <div class="mt-3 grid grid-cols-2 gap-2">
+            <button type="button" id="btn-ndrf-toggle" onclick="toggleNDRFRescueMode()" class="bg-rose-950/60 hover:bg-rose-900/80 text-rose-300 border border-rose-700/80 font-bold py-1.5 px-2 rounded-lg text-xs transition duration-200 shadow-md flex items-center justify-center gap-1.5 active:scale-95">
+                <span class="text-base">🚨</span>
+                <span id="ndrf-btn-text">Disaster Rescue View</span>
             </button>
+            <button type="button" id="btn-density-toggle" onclick="toggleDensityHeatmap()" class="bg-amber-950/50 hover:bg-amber-900/70 text-amber-300 border border-amber-700/80 font-bold py-1.5 px-2 rounded-lg text-xs transition duration-200 shadow-md flex items-center justify-center gap-1.5 active:scale-95">
+                <span class="text-base">🔥</span>
+                <span id="density-btn-text">Density Heatmap</span>
+            </button>
+        </div>
+
+        <!-- AI & Automation Action Toolbar -->
+        <div class="mt-2.5 pt-2.5 border-t border-slate-800 space-y-1.5">
+            <div class="flex gap-1.5">
+                <button type="button" onclick="triggerBlueprintVisionAI()" class="flex-1 bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-500 hover:to-indigo-500 text-white font-semibold py-1.5 px-2.5 rounded-lg text-xs transition shadow flex items-center justify-center gap-1 active:scale-95">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                    Blueprint 3D Vision
+                </button>
+                <button type="button" onclick="openTaxFraudModal()" class="flex-1 bg-purple-900/50 hover:bg-purple-900/70 text-purple-300 border border-purple-700/80 font-semibold py-1.5 px-2.5 rounded-lg text-xs transition shadow flex items-center justify-center gap-1 active:scale-95">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+                    Tax Fraud Audit
+                </button>
+            </div>
+            <div class="flex gap-1.5">
+                <button type="button" onclick="openDeedOcrModal()" class="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium py-1 px-2 rounded-lg text-[11px] border border-slate-700 flex items-center justify-center gap-1 active:scale-95">
+                    <svg class="w-3 h-3 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                    Deed OCR Reader
+                </button>
+                <button type="button" onclick="openUtilityEstimatorModal()" class="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium py-1 px-2 rounded-lg text-[11px] border border-slate-700 flex items-center justify-center gap-1 active:scale-95">
+                    <svg class="w-3 h-3 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                    Utility Occupancy AI
+                </button>
+            </div>
+            <div class="flex gap-1.5 pt-1">
+                <button type="button" onclick="seedUrbanComplex()" class="flex-1 bg-slate-800/80 hover:bg-slate-700 text-slate-300 font-medium py-1 px-2 rounded-lg text-[11px] border border-slate-700 flex items-center justify-center gap-1">
+                    🔄 Reset Complex
+                </button>
+                <button type="button" onclick="openRegisterModal()" class="flex-1 bg-emerald-900/40 hover:bg-emerald-900/60 text-emerald-300 font-medium py-1 px-2 rounded-lg text-[11px] border border-emerald-700/60 flex items-center justify-center gap-1">
+                    + Register Custom 3D Unit
+                </button>
+            </div>
         </div>
     </header>
 
-    <!-- Bottom Left Vertical Strata & Floor Slicing Bar -->
-    <div class="absolute bottom-4 left-4 z-10 glass-panel rounded-2xl p-3 pointer-events-auto flex items-center gap-2">
-        <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider pl-1">Strata Filter:</span>
-        <div id="strata-buttons" class="flex gap-1">
-            <button onclick="filterStrata(null)" class="strata-btn active px-2.5 py-1 rounded-md text-xs font-semibold bg-indigo-600 text-white shadow">All</button>
-            <button onclick="filterStrata(-2)" class="strata-btn px-2 py-1 rounded-md text-xs font-medium bg-slate-800 text-slate-300 hover:bg-slate-700">B-2 (Metro)</button>
-            <button onclick="filterStrata(-1)" class="strata-btn px-2 py-1 rounded-md text-xs font-medium bg-slate-800 text-slate-300 hover:bg-slate-700">B-1 (Parking)</button>
-            <button onclick="filterStrata(1)" class="strata-btn px-2 py-1 rounded-md text-xs font-medium bg-slate-800 text-slate-300 hover:bg-slate-700">Floor 1</button>
-            <button onclick="filterStrata(2)" class="strata-btn px-2 py-1 rounded-md text-xs font-medium bg-slate-800 text-slate-300 hover:bg-slate-700">Floor 2</button>
-            <button onclick="filterStrata(3)" class="strata-btn px-2 py-1 rounded-md text-xs font-medium bg-slate-800 text-slate-300 hover:bg-slate-700">Floor 3</button>
-            <button onclick="filterStrata(4)" class="strata-btn px-2 py-1 rounded-md text-xs font-medium bg-slate-800 text-slate-300 hover:bg-slate-700">Floor 4</button>
+    <!-- NDRF Evacuation Summary Floating Panel (shown in Rescue Mode) -->
+    <div id="ndrf-summary-panel" class="absolute top-16 left-[26rem] z-10 glass-panel rounded-2xl p-4 w-80 max-w-[calc(100vw-28rem)] pointer-events-auto border border-rose-500/60 shadow-2xl hidden pulse-alert">
+        <div class="flex items-center justify-between border-b border-rose-800/80 pb-2">
+            <h3 class="text-xs font-bold text-rose-400 flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-rose-500 animate-ping"></span>
+                NDRF Evacuation Manifest
+            </h3>
+            <span class="text-[10px] bg-rose-950 text-rose-300 px-1.5 py-0.5 rounded font-mono font-bold">FIRE DEPT</span>
+        </div>
+        <div class="mt-2.5 space-y-2 text-xs">
+            <div class="bg-rose-950/60 p-2 rounded-lg border border-rose-800 text-[11px] text-rose-200" id="ndrf-alert-headline">
+                🚨 Isolating high-risk senior & infant residents across building strata.
+            </div>
+            <div class="grid grid-cols-2 gap-1.5 text-center">
+                <div class="bg-slate-900/90 p-1.5 rounded-lg border border-slate-800">
+                    <span class="text-[10px] text-slate-400 block">Seniors (60+)</span>
+                    <span id="ndrf-total-seniors" class="text-sm font-bold text-amber-400">11</span>
+                </div>
+                <div class="bg-slate-900/90 p-1.5 rounded-lg border border-slate-800">
+                    <span class="text-[10px] text-slate-400 block">Infants & Kids</span>
+                    <span id="ndrf-total-infants" class="text-sm font-bold text-rose-400">9</span>
+                </div>
+            </div>
+            <div id="ndrf-floor-breakdown" class="space-y-1 max-h-36 overflow-y-auto custom-scroll text-[11px] pr-1">
+                <!-- Populated dynamically -->
+            </div>
         </div>
     </div>
 
-    <!-- Right Side Record of Rights (RoR) Inspector Panel -->
-    <aside id="inspector-panel" class="absolute top-4 right-4 z-10 glass-panel rounded-2xl p-5 w-96 max-w-[calc(100vw-2rem)] pointer-events-auto hidden custom-scroll max-h-[92vh] overflow-y-auto">
+    <!-- Bottom Left Vertical Strata Slicing Bar -->
+    <div class="absolute bottom-4 left-4 z-10 glass-panel rounded-2xl p-3 pointer-events-auto flex items-center gap-2">
+        <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider pl-1">Strata Filter:</span>
+        <div id="strata-buttons" class="flex gap-1 flex-wrap">
+            <button type="button" onclick="filterStrata(this, null)" class="strata-btn px-2.5 py-1 rounded-md text-xs font-semibold bg-indigo-600 text-white shadow">All</button>
+            <button type="button" onclick="filterStrata(this, -2)" class="strata-btn px-2 py-1 rounded-md text-xs font-medium bg-slate-800 text-slate-300 hover:bg-slate-700">B-2 (Metro)</button>
+            <button type="button" onclick="filterStrata(this, -1)" class="strata-btn px-2 py-1 rounded-md text-xs font-medium bg-slate-800 text-slate-300 hover:bg-slate-700">B-1 (Parking)</button>
+            <button type="button" onclick="filterStrata(this, 1)" class="strata-btn px-2 py-1 rounded-md text-xs font-medium bg-slate-800 text-slate-300 hover:bg-slate-700">Floor 1</button>
+            <button type="button" onclick="filterStrata(this, 2)" class="strata-btn px-2 py-1 rounded-md text-xs font-medium bg-slate-800 text-slate-300 hover:bg-slate-700">Floor 2</button>
+            <button type="button" onclick="filterStrata(this, 3)" class="strata-btn px-2 py-1 rounded-md text-xs font-medium bg-slate-800 text-slate-300 hover:bg-slate-700">Floor 3</button>
+            <button type="button" onclick="filterStrata(this, 4)" class="strata-btn px-2 py-1 rounded-md text-xs font-medium bg-slate-800 text-slate-300 hover:bg-slate-700">Floor 4</button>
+        </div>
+    </div>
+
+    <!-- Right Side Record of Rights (RoR) Inspector Panel with QR Passport & Tax Breakdown -->
+    <aside id="inspector-panel" class="absolute top-16 right-4 z-10 glass-panel rounded-2xl p-5 w-96 max-w-[calc(100vw-2rem)] pointer-events-auto hidden custom-scroll max-h-[88vh] overflow-y-auto">
         <div class="flex justify-between items-start border-b border-slate-800 pb-3">
             <div>
                 <span class="text-[10px] tracking-wider uppercase font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">3D Volumetric Cadastre</span>
                 <h2 id="parcel-name" class="text-base font-bold text-white mt-1.5">Flat-101</h2>
                 <div id="parcel-type" class="text-[11px] text-slate-400">Residential Apartment</div>
             </div>
-            <button onclick="closeInspector()" class="text-slate-400 hover:text-white text-base font-bold bg-slate-800/80 hover:bg-slate-700 rounded-full w-7 h-7 flex items-center justify-center transition">&times;</button>
+            <button type="button" onclick="closeInspector()" class="text-slate-400 hover:text-white text-base font-bold bg-slate-800/80 hover:bg-slate-700 rounded-full w-7 h-7 flex items-center justify-center transition">&times;</button>
         </div>
 
-        <div class="mt-4 space-y-3.5 text-xs">
-            <!-- 3D ULPIN Code Display -->
+        <div class="mt-4 space-y-3 text-xs">
+            <!-- 19-Character 3D ULPIN Code Display -->
             <div>
-                <label class="text-slate-400 block font-semibold text-[11px] uppercase tracking-wider">Cryptographic 3D ULPIN</label>
+                <label class="text-slate-400 block font-semibold text-[11px] uppercase tracking-wider">19-Char 3D ULPIN (Bhu-Aadhaar)</label>
                 <div id="ulpin-code" class="font-mono text-xs bg-slate-950 text-emerald-400 p-2.5 rounded-lg border border-emerald-500/30 mt-1 break-all select-all font-bold shadow-inner flex items-center justify-between">
-                    <span id="ulpin-text">--</span>
-                    <button onclick="copyUlpin()" title="Copy ULPIN" class="text-slate-400 hover:text-emerald-300 p-1">
+                    <span id="ulpin-text">12A34B56C78D90-A003</span>
+                    <button type="button" onclick="copyUlpin()" title="Copy ULPIN" class="text-slate-400 hover:text-emerald-300 p-1">
                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
                     </button>
                 </div>
@@ -127,70 +207,240 @@
             <!-- Spatial Geometry Coordinates -->
             <div class="grid grid-cols-2 gap-2">
                 <div class="bg-slate-900/80 p-2 rounded-lg border border-slate-800">
-                    <span class="text-slate-400 text-[10px] block font-medium">Vertical Layer</span>
-                    <span id="floor-level" class="font-bold text-slate-200 text-xs">--</span>
+                    <span class="text-slate-400 text-[10px] block font-medium">Vertical Strata</span>
+                    <span id="floor-level" class="font-bold text-slate-200 text-xs">Floor 3</span>
                 </div>
                 <div class="bg-slate-900/80 p-2 rounded-lg border border-slate-800">
                     <span class="text-slate-400 text-[10px] block font-medium">Elevation (MSL)</span>
-                    <span id="elevation-range" class="font-bold text-slate-200 text-xs">--</span>
+                    <span id="elevation-range" class="font-bold text-slate-200 text-xs">6.4m to 9.6m</span>
                 </div>
             </div>
 
             <div class="bg-slate-900/80 p-2.5 rounded-lg border border-slate-800">
                 <div class="flex justify-between items-center">
-                    <span class="text-slate-400 text-[10px] block font-medium">Volumetric Extent (Solid)</span>
-                    <span id="parcel-volume" class="font-bold text-sky-400 text-xs">-- m³</span>
+                    <span class="text-slate-400 text-[10px] block font-medium">Solid Volumetric Extent</span>
+                    <span id="parcel-volume" class="font-bold text-sky-400 text-xs">73.7 m³</span>
                 </div>
-                <div class="text-[10px] text-slate-500 mt-0.5 font-mono" id="parcel-coords">X: [-5, 0] | Y: [-5, 0]</div>
+                <div class="text-[10px] text-slate-500 mt-0.5 font-mono" id="parcel-coords">X: [-5, -0.2] | Y: [-5, -0.2]</div>
+            </div>
+
+            <!-- Demographics & Vulnerability Box -->
+            <div class="bg-slate-950/80 p-2.5 rounded-lg border border-slate-800">
+                <span class="text-slate-400 text-[10px] block font-bold uppercase tracking-wider mb-1">Resident Demographics</span>
+                <div class="grid grid-cols-3 gap-1 text-center">
+                    <div class="bg-slate-900 p-1 rounded">
+                        <span class="text-[9px] text-slate-400 block">Seniors (60+)</span>
+                        <span id="demo-seniors" class="font-bold text-amber-400 text-xs">1</span>
+                    </div>
+                    <div class="bg-slate-900 p-1 rounded">
+                        <span class="text-[9px] text-slate-400 block">Adults</span>
+                        <span id="demo-adults" class="font-bold text-slate-200 text-xs">2</span>
+                    </div>
+                    <div class="bg-slate-900 p-1 rounded">
+                        <span class="text-[9px] text-slate-400 block">Kids (<12)</span>
+                        <span id="demo-kids" class="font-bold text-rose-400 text-xs">1</span>
+                    </div>
+                </div>
             </div>
 
             <!-- Record of Rights (RoR) Legal Attributes -->
-            <div class="border-t border-slate-800 pt-3">
-                <h3 class="text-[10px] uppercase tracking-wider font-bold text-slate-400 mb-2">Record of Rights (RoR)</h3>
-                <div class="space-y-2 bg-slate-950/60 p-2.5 rounded-lg border border-slate-800/80">
-                    <div class="flex justify-between"><span class="text-slate-400">Legal Title Holder:</span><span id="owner-name" class="text-white font-semibold">--</span></div>
-                    <div class="flex justify-between"><span class="text-slate-400">Base Survey No:</span><span id="survey-no" class="text-slate-200 font-mono">--</span></div>
-                    <div class="flex justify-between"><span class="text-slate-400">Encumbrance:</span><span id="encumbrance-status" class="text-emerald-400 font-medium">Clear / Validated</span></div>
-                    <div class="flex justify-between"><span class="text-slate-400">LADM Standard:</span><span class="text-slate-300 font-mono text-[10px]">ISO 19152 Spatial 3D</span></div>
+            <div class="border-t border-slate-800 pt-2.5">
+                <h3 class="text-[10px] uppercase tracking-wider font-bold text-slate-400 mb-1.5">Record of Rights (RoR)</h3>
+                <div class="space-y-1.5 bg-slate-950/60 p-2.5 rounded-lg border border-slate-800/80 text-[11px]">
+                    <div class="flex justify-between"><span class="text-slate-400">Legal Title Holder:</span><span id="owner-name" class="text-white font-semibold">Dr. Aarav Sharma</span></div>
+                    <div class="flex justify-between"><span class="text-slate-400">Base Survey No:</span><span id="survey-no" class="text-slate-200 font-mono">SY-142/2A</span></div>
+                    <div class="flex justify-between"><span class="text-slate-400">Encumbrance:</span><span id="encumbrance-status" class="text-emerald-400 font-medium">Clear / Certified Freehold</span></div>
+                </div>
+            </div>
+
+            <!-- Dynamic Property Tax Breakdown -->
+            <div class="border-t border-slate-800 pt-2.5">
+                <h3 class="text-[10px] uppercase tracking-wider font-bold text-sky-400 mb-1.5 flex justify-between">
+                    <span>Volumetric Property Tax</span>
+                    <span id="tax-net-amount" class="text-emerald-400 font-bold">₹3,485 / yr</span>
+                </h3>
+                <div class="bg-slate-950/80 p-2 rounded-lg border border-slate-800 space-y-1 text-[10px]">
+                    <div class="flex justify-between text-slate-400"><span>Base Volumetric Rate:</span><span id="tax-base-rate" class="text-slate-200">₹45 / m³</span></div>
+                    <div class="flex justify-between text-slate-400"><span>Floor Elevation Multiplier:</span><span id="tax-floor-factor" class="text-slate-200">1.070x</span></div>
+                    <div class="flex justify-between text-slate-400"><span>Senior Resident Rebate:</span><span id="tax-rebate" class="text-emerald-400">-₹183 (5%)</span></div>
+                </div>
+            </div>
+
+            <!-- Scannable QR Code Property Passport Section -->
+            <div class="border-t border-slate-800 pt-2.5">
+                <label class="text-slate-400 block font-semibold text-[10px] uppercase tracking-wider mb-1">Digital QR Property Passport</label>
+                <div class="bg-white p-2 rounded-xl flex items-center justify-between shadow-lg">
+                    <div id="qrcode-container" class="flex items-center justify-center p-1 bg-white rounded"></div>
+                    <div class="text-[10px] text-slate-800 pl-2 leading-tight">
+                        <div class="font-bold text-indigo-900">National Cadastre Portal</div>
+                        <div class="text-slate-600 mt-0.5 text-[9px]">Scan to verify title authenticity & 3D stratum rights on official registry.</div>
+                        <div id="qr-verify-url" class="font-mono text-[8px] text-sky-700 mt-1 break-all select-all font-semibold">https://cadastre.gov.in/verify</div>
+                    </div>
                 </div>
             </div>
 
             <!-- 3D Interoperability Model Exports -->
             <div>
-                <label class="text-slate-400 block font-semibold text-[10px] uppercase tracking-wider mb-1.5">3D Model Interoperability</label>
+                <label class="text-slate-400 block font-semibold text-[10px] uppercase tracking-wider mb-1">3D Spatial Interoperability</label>
                 <div class="grid grid-cols-3 gap-1.5">
-                    <button onclick="downloadExport('geojson')" class="bg-slate-800 hover:bg-slate-700 text-slate-200 py-1.5 rounded-md text-[10px] font-semibold border border-slate-700 transition">
+                    <button type="button" onclick="downloadExport('geojson')" class="bg-slate-800 hover:bg-slate-700 text-slate-200 py-1 rounded-md text-[10px] font-semibold border border-slate-700 transition">
                         GeoJSON-3D
                     </button>
-                    <button onclick="downloadExport('citygml')" class="bg-slate-800 hover:bg-slate-700 text-slate-200 py-1.5 rounded-md text-[10px] font-semibold border border-slate-700 transition">
+                    <button type="button" onclick="downloadExport('citygml')" class="bg-slate-800 hover:bg-slate-700 text-slate-200 py-1 rounded-md text-[10px] font-semibold border border-slate-700 transition">
                         CityGML 2.0
                     </button>
-                    <button onclick="downloadExport('gltf')" class="bg-slate-800 hover:bg-slate-700 text-slate-200 py-1.5 rounded-md text-[10px] font-semibold border border-slate-700 transition">
+                    <button type="button" onclick="downloadExport('gltf')" class="bg-slate-800 hover:bg-slate-700 text-slate-200 py-1 rounded-md text-[10px] font-semibold border border-slate-700 transition">
                         glTF 2.0
                     </button>
                 </div>
             </div>
 
             <!-- Title Certificate Print/Export -->
-            <button onclick="printTitleCertificate()" class="w-full mt-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold py-2 rounded-xl transition shadow-lg text-xs flex items-center justify-center gap-1.5 glow-emerald">
+            <button type="button" onclick="printTitleCertificate()" class="w-full mt-1 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold py-2 rounded-xl transition shadow-lg text-xs flex items-center justify-center gap-1.5 glow-emerald active:scale-95">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
-                Generate Digital 3D Title Certificate
+                Print Digital 3D Title Certificate
             </button>
         </div>
     </aside>
 
-    <!-- Custom Parcel Registration Modal -->
-    <div id="register-modal" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-4 hidden">
-        <div class="glass-panel rounded-2xl p-6 w-full max-w-md border border-slate-700 shadow-2xl">
-            <div class="flex justify-between items-center border-b border-slate-800 pb-3">
-                <h3 class="text-sm font-bold text-white flex items-center gap-2">
-                    <span class="w-2 h-2 rounded-full bg-sky-400"></span>
-                    Register 3D Cadastral Unit
+    <!-- Tax Fraud & Anomaly Audit Modal -->
+    <div id="tax-fraud-modal" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-4 hidden">
+        <div class="glass-panel rounded-2xl p-5 w-full max-w-lg border border-purple-700/80 shadow-2xl">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-2.5">
+                <h3 class="text-sm font-bold text-purple-300 flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-purple-400 animate-pulse"></span>
+                    AI Tax Fraud & Unpermitted Floor Detector
                 </h3>
-                <button onclick="closeRegisterModal()" class="text-slate-400 hover:text-white text-lg font-bold">&times;</button>
+                <button type="button" onclick="closeTaxFraudModal()" class="text-slate-400 hover:text-white text-lg font-bold">&times;</button>
             </div>
             
-            <form id="register-form" onsubmit="handleRegisterSubmit(event)" class="mt-4 space-y-3 text-xs">
+            <div class="mt-3 space-y-3 text-xs">
+                <div class="bg-purple-950/50 p-2.5 rounded-lg border border-purple-800/80 text-[11px] text-purple-200">
+                    Compares 3D physical building LiDAR/CAD reconstruction against municipal registered property tax records.
+                </div>
+
+                <div class="grid grid-cols-2 gap-2">
+                    <div class="bg-slate-900 p-2.5 rounded-lg border border-slate-800">
+                        <span class="text-slate-400 text-[10px] block">Municipal Declared Floors</span>
+                        <input type="number" id="tax-declared-floors" value="3" class="w-full bg-slate-950 border border-slate-700 rounded p-1 text-white text-xs mt-1" />
+                    </div>
+                    <div class="bg-slate-900 p-2.5 rounded-lg border border-slate-800">
+                        <span class="text-slate-400 text-[10px] block">Physical 3D Reconstructed Floors</span>
+                        <input type="number" id="tax-physical-floors" value="5" class="w-full bg-slate-950 border border-slate-700 rounded p-1 text-white text-xs mt-1" />
+                    </div>
+                </div>
+
+                <div id="tax-audit-result-box" class="bg-slate-950 p-3 rounded-lg border border-slate-800 space-y-2">
+                    <div class="flex justify-between items-center">
+                        <span class="text-slate-400 text-[11px]">Audit Status:</span>
+                        <span id="tax-audit-risk-badge" class="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-950 text-rose-300 border border-rose-800">CRITICAL_TAX_FRAUD</span>
+                    </div>
+                    <div id="tax-audit-desc" class="text-[11px] text-rose-300">
+                        CRITICAL FRAUD: 2 unpermitted floors detected (770.0 m³ unauthorized volume). Paid for 3 floors, constructed 5 floors.
+                    </div>
+                    <div class="flex justify-between items-center pt-1 border-t border-slate-800 text-[11px]">
+                        <span class="text-slate-400">Estimated Unpaid Revenue + Penalties:</span>
+                        <span id="tax-audit-unpaid" class="font-bold text-rose-400">₹86,625</span>
+                    </div>
+                </div>
+
+                <div class="flex justify-end gap-2 pt-1">
+                    <button type="button" onclick="closeTaxFraudModal()" class="px-3 py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs">Close</button>
+                    <button type="button" onclick="runTaxAudit()" class="px-4 py-1.5 rounded bg-purple-600 hover:bg-purple-500 text-white font-semibold text-xs">Run Scikit-Learn Anomaly Audit</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Deed OCR Modal -->
+    <div id="deed-ocr-modal" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-4 hidden">
+        <div class="glass-panel rounded-2xl p-5 w-full max-w-lg border border-sky-700/80 shadow-2xl">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-2.5">
+                <h3 class="text-sm font-bold text-sky-300 flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-sky-400"></span>
+                    Deed OCR Document Reader & Entity Linker
+                </h3>
+                <button type="button" onclick="closeDeedOcrModal()" class="text-slate-400 hover:text-white text-lg font-bold">&times;</button>
+            </div>
+            
+            <div class="mt-3 space-y-3 text-xs">
+                <div>
+                    <label class="text-slate-400 block mb-1">Deed / Conveyance Text (Kaveri / DILRMP Format):</label>
+                    <textarea id="deed-ocr-text" rows="4" class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-white font-mono text-[11px] custom-scroll">GOVERNMENT OF KARNATAKA - DEPARTMENT OF STAMPS & REGISTRATION
+SALE DEED No: BLR-URBAN/SHIVAJINAGAR/2026/4921
+Purchaser: Dr. Rajesh Sharma
+Flat No. 302, Floor 3, Survey No: SY-142/2A
+Carpet Area: 85.40 sqm, Clear Title.</textarea>
+                </div>
+
+                <div id="deed-result-box" class="bg-slate-950 p-3 rounded-lg border border-slate-800 space-y-1.5 text-[11px]">
+                    <div class="flex justify-between"><span class="text-slate-400">Extracted Owner:</span><span id="ocr-owner" class="text-white font-semibold">Dr. Rajesh Sharma</span></div>
+                    <div class="flex justify-between"><span class="text-slate-400">Extracted Unit / Floor:</span><span id="ocr-unit" class="text-sky-300 font-mono">Flat-302 (Floor 3)</span></div>
+                    <div class="flex justify-between"><span class="text-slate-400">Survey Lot Number:</span><span id="ocr-survey" class="text-slate-200 font-mono">SY-142/2A</span></div>
+                    <div class="flex justify-between"><span class="text-slate-400">Assigned 19-Char 3D ULPIN:</span><span id="ocr-ulpin" class="text-emerald-400 font-mono font-bold">12A34B56C78D90-A003</span></div>
+                </div>
+
+                <div class="flex justify-end gap-2 pt-1">
+                    <button type="button" onclick="closeDeedOcrModal()" class="px-3 py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs">Close</button>
+                    <button type="button" onclick="runDeedOcr()" class="px-4 py-1.5 rounded bg-sky-600 hover:bg-sky-500 text-white font-semibold text-xs">Parse & Link to 3D Unit</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Utility Occupancy Estimator Modal -->
+    <div id="utility-modal" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-4 hidden">
+        <div class="glass-panel rounded-2xl p-5 w-full max-w-md border border-amber-700/80 shadow-2xl">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-2.5">
+                <h3 class="text-sm font-bold text-amber-300 flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span>
+                    Smart Utility Occupancy AI Estimator
+                </h3>
+                <button type="button" onclick="closeUtilityModal()" class="text-slate-400 hover:text-white text-lg font-bold">&times;</button>
+            </div>
+            
+            <div class="mt-3 space-y-3 text-xs">
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="text-slate-400 block mb-1">Electricity (kWh/mo)</label>
+                        <input type="number" id="util-elec" value="850" class="w-full bg-slate-950 border border-slate-800 rounded p-1.5 text-white" />
+                    </div>
+                    <div>
+                        <label class="text-slate-400 block mb-1">Water (Liters/mo)</label>
+                        <input type="number" id="util-water" value="32000" class="w-full bg-slate-950 border border-slate-800 rounded p-1.5 text-white" />
+                    </div>
+                </div>
+                <div>
+                    <label class="text-slate-400 block mb-1">Declared Occupants</label>
+                    <input type="number" id="util-declared" value="2" class="w-full bg-slate-950 border border-slate-800 rounded p-1.5 text-white" />
+                </div>
+
+                <div id="util-result-box" class="bg-slate-950 p-2.5 rounded-lg border border-slate-800 space-y-1.5 text-[11px]">
+                    <div class="flex justify-between"><span class="text-slate-400">Estimated True Occupants:</span><span id="util-est-count" class="text-amber-300 font-bold">~9 Occupants</span></div>
+                    <div class="flex justify-between"><span class="text-slate-400">Status:</span><span id="util-status" class="text-rose-400 font-bold">OVERCROWDED_OR_COMMERCIAL</span></div>
+                    <div id="util-summary" class="text-[10px] text-slate-300 mt-1">High consumption indicates unpermitted commercial or hostel conversion.</div>
+                </div>
+
+                <div class="flex justify-end gap-2 pt-1">
+                    <button type="button" onclick="closeUtilityModal()" class="px-3 py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs">Close</button>
+                    <button type="button" onclick="runUtilityEstimation()" class="px-4 py-1.5 rounded bg-amber-600 hover:bg-amber-500 text-white font-semibold text-xs">Run Regression Model</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Parcel Registration Modal with 3D Collision Detection -->
+    <div id="register-modal" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-4 hidden">
+        <div class="glass-panel rounded-2xl p-6 w-full max-w-md border border-slate-700 shadow-2xl max-h-[92vh] overflow-y-auto custom-scroll">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+                <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                    Register 3D Cadastral Strata Unit
+                </h3>
+                <button type="button" onclick="closeRegisterModal()" class="text-slate-400 hover:text-white text-lg font-bold">&times;</button>
+            </div>
+            
+            <form id="register-form" onsubmit="handleRegisterSubmit(event)" class="mt-3 space-y-2.5 text-xs">
                 <div class="grid grid-cols-2 gap-2">
                     <div>
                         <label class="text-slate-400 block mb-1">Unit Label</label>
@@ -209,16 +459,32 @@
 
                 <div class="grid grid-cols-2 gap-2">
                     <div>
-                        <label class="text-slate-400 block mb-1">Base Survey No</label>
-                        <input type="text" id="reg-survey-no" required value="SY-142/2A" class="w-full bg-slate-900 border border-slate-800 rounded p-1.5 text-white focus:border-sky-500 focus:outline-none" />
+                        <label class="text-slate-400 block mb-1">Base Cadastral Plot</label>
+                        <input type="text" id="reg-base-plot" required value="12A34B56C78D90" class="w-full bg-slate-900 border border-slate-800 rounded p-1.5 text-white font-mono" />
                     </div>
                     <div>
                         <label class="text-slate-400 block mb-1">Property Type</label>
                         <select id="reg-property-type" class="w-full bg-slate-900 border border-slate-800 rounded p-1.5 text-white focus:border-sky-500 focus:outline-none">
                             <option>Residential Apartment</option>
-                            <option>Penthouse Commercial</option>
+                            <option>Commercial Penthouse</option>
                             <option>Subsurface Infrastructure</option>
                         </select>
+                    </div>
+                </div>
+
+                <!-- Demographics -->
+                <div class="grid grid-cols-3 gap-1.5 bg-slate-950 p-2 rounded-lg border border-slate-800">
+                    <div>
+                        <label class="text-slate-400 block text-[10px]">Seniors (60+)</label>
+                        <input type="number" id="reg-seniors" value="1" class="w-full bg-slate-900 border border-slate-800 rounded p-1 text-white" />
+                    </div>
+                    <div>
+                        <label class="text-slate-400 block text-[10px]">Adults</label>
+                        <input type="number" id="reg-adults" value="2" class="w-full bg-slate-900 border border-slate-800 rounded p-1 text-white" />
+                    </div>
+                    <div>
+                        <label class="text-slate-400 block text-[10px]">Kids (<12)</label>
+                        <input type="number" id="reg-kids" value="1" class="w-full bg-slate-900 border border-slate-800 rounded p-1 text-white" />
                     </div>
                 </div>
 
@@ -249,11 +515,11 @@
                     </div>
                 </div>
 
-                <div id="register-error" class="text-rose-400 text-[11px] bg-rose-950/50 p-2 rounded border border-rose-800 hidden"></div>
+                <div id="register-error" class="text-rose-400 text-[11px] bg-rose-950/80 p-2 rounded border border-rose-800 hidden font-semibold"></div>
 
                 <div class="flex justify-end gap-2 pt-2">
                     <button type="button" onclick="closeRegisterModal()" class="px-3 py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300">Cancel</button>
-                    <button type="submit" class="px-4 py-1.5 rounded bg-sky-600 hover:bg-sky-500 text-white font-semibold">Validate & Register</button>
+                    <button type="submit" class="px-4 py-1.5 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-semibold">Verify 3D Topology & Register</button>
                 </div>
             </form>
         </div>
