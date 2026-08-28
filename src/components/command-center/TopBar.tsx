@@ -120,6 +120,11 @@ export function TopBar({
           </div>
         )}
 
+        {/* Runtime Debug Marker */}
+        <div className="hidden 2xl:flex items-center gap-1 text-[9px] font-mono text-accent-400 bg-accent-500/10 px-2 py-0.5 rounded border border-accent-500/25">
+          <span>BUILD SOURCE: SIH-Hackathon | DIMENSION PIPELINE: CONFIRMED | VERSION: CONFIRMED-DIMENSIONS-FIX-01</span>
+        </div>
+
         {/* System status */}
         <div className="hidden md:flex items-center gap-1.5 text-[10px]">
           <span className="h-1.5 w-1.5 rounded-full bg-success-500 animate-pulse-soft" />
