@@ -106,6 +106,44 @@ export class CesiumSceneAdapter implements ICesiumAdapter {
     scene.globe.enableLighting = false;
     scene.globe.depthTestAgainstTerrain = false;
 
+    // ── ScreenSpaceCameraController configuration for smooth 360° 3D inspection ──
+    const controller = scene.screenSpaceCameraController;
+    controller.enableRotate = true;
+    controller.enableTranslate = true;
+    controller.enableZoom = true;
+    controller.enableTilt = true;
+    controller.enableLook = true;
+    controller.enableCollisionDetection = false; // Disables terrain collision lock so user can orbit basements & all angles
+    controller.minimumZoomDistance = 2.0;
+    controller.maximumZoomDistance = 25000.0;
+    controller.inertiaSpin = 0.08;
+    controller.inertiaTranslate = 0.08;
+    controller.inertiaZoom = 0.08;
+
+    // Natural 3D Orbit, Tilt, Pan and Zoom bindings:
+    // • Left Drag: Rotate/Orbit around the scene
+    // • Right Drag / Middle Drag: 360° Tilt & Orbit around the building
+    // • Shift + Left Drag / Ctrl + Left Drag: Tilt & Orbit
+    // • Shift + Right Drag / Alt + Left Drag: Pan/Translate
+    // • Wheel / Pinch: Zoom in & out smoothly
+    controller.rotateEventTypes = [
+      Cesium.CameraEventType.LEFT_DRAG,
+    ];
+    controller.tiltEventTypes = [
+      Cesium.CameraEventType.MIDDLE_DRAG,
+      Cesium.CameraEventType.RIGHT_DRAG,
+      { eventType: Cesium.CameraEventType.LEFT_DRAG, modifier: Cesium.KeyboardEventModifier.CTRL },
+      { eventType: Cesium.CameraEventType.LEFT_DRAG, modifier: Cesium.KeyboardEventModifier.SHIFT },
+    ];
+    controller.translateEventTypes = [
+      { eventType: Cesium.CameraEventType.RIGHT_DRAG, modifier: Cesium.KeyboardEventModifier.SHIFT },
+      { eventType: Cesium.CameraEventType.LEFT_DRAG, modifier: Cesium.KeyboardEventModifier.ALT },
+    ];
+    controller.zoomEventTypes = [
+      Cesium.CameraEventType.WHEEL,
+      Cesium.CameraEventType.PINCH,
+    ];
+
     this.camera = new CameraController(this.viewer);
     this.interaction = new InteractionHandler(this.viewer, this.onSelection);
 
