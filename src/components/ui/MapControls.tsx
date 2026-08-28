@@ -7,6 +7,8 @@ interface MapControlsProps {
   onHome: () => void;
   onFocus: () => void;
   onReset: () => void;
+  isRescueActive?: boolean;
+  onToggleRescueView?: () => void;
 }
 
 export function MapControls({
@@ -15,6 +17,8 @@ export function MapControls({
   onHome,
   onFocus,
   onReset,
+  isRescueActive,
+  onToggleRescueView,
 }: MapControlsProps) {
   return (
     <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10">
@@ -83,12 +87,13 @@ export function MapControls({
           tooltip="GIS layers control (Coming in future integration phase)"
         />
 
-        {/* Disaster Rescue — Future Module */}
+        {/* Disaster Rescue Module Toggle */}
         <ControlButton
-          disabled
+          active={isRescueActive}
+          onClick={onToggleRescueView}
           icon={<Siren className="h-3.5 w-3.5" />}
           label="Rescue View"
-          tooltip="Disaster Rescue module (Coming Soon)"
+          tooltip="Toggle 3D Disaster & Evacuation Rescue View"
         />
       </div>
     </div>

@@ -2,6 +2,8 @@ import { useCallback, useMemo, useState } from 'react';
 import type { MapMode, SelectionState, Parcel } from '@/types/property';
 import { sampleParcel } from '@/data/sampleProperty';
 
+export type ViewMode = 'command' | 'disaster';
+
 /**
  * Central application state for the Command Center.
  * Manages active parcel (Demo Cadastre vs Generated 3D Property), selection state,
@@ -10,6 +12,7 @@ import { sampleParcel } from '@/data/sampleProperty';
 export function useCommandCenterState() {
   const [activeParcel, setActiveParcel] = useState<Parcel>(sampleParcel);
   const [generatedParcel, setGeneratedParcelState] = useState<Parcel | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>('command');
 
   const [selection, setSelection] = useState<SelectionState>({
     kind: null,
@@ -122,6 +125,7 @@ export function useCommandCenterState() {
       isGeneratedActive,
       selection,
       mapMode,
+      viewMode,
       searchQuery,
       cesiumReady,
       cesiumError,
@@ -132,6 +136,7 @@ export function useCommandCenterState() {
       clearSelection,
       setMapMode,
       toggleMapMode,
+      setViewMode,
       setSearchQuery,
       setCesiumReady,
       setCesiumError,
@@ -145,6 +150,7 @@ export function useCommandCenterState() {
       isGeneratedActive,
       selection,
       mapMode,
+      viewMode,
       searchQuery,
       cesiumReady,
       cesiumError,

@@ -5,7 +5,9 @@ import type { SearchEntry, SelectionState, Parcel } from '@/types/property';
 interface TopBarProps {
   onSelectSearchResult: (entry: SearchEntry) => void;
   selection: SelectionState;
+  activeView?: 'command' | 'disaster';
   onNavigateCommandCenter?: () => void;
+  onNavigateDisaster?: () => void;
   onOpenCreateProperty?: () => void;
   isGeneratedActive?: boolean;
   hasGeneratedProperty?: boolean;
@@ -17,7 +19,9 @@ interface TopBarProps {
 export function TopBar({
   onSelectSearchResult,
   selection,
+  activeView = 'command',
   onNavigateCommandCenter,
+  onNavigateDisaster,
   onOpenCreateProperty,
   isGeneratedActive,
   hasGeneratedProperty,
@@ -55,14 +59,15 @@ export function TopBar({
         {/* Navigation pills */}
         <div className="hidden md:flex items-center gap-0.5 ml-1 pl-3 border-l border-white/[0.06]">
           <NavPill
-            active
+            active={activeView === 'command'}
             label="Command Center"
             onClick={onNavigateCommandCenter}
           />
           <NavPill
+            active={activeView === 'disaster'}
             label="Disaster View"
-            disabled
-            tooltip="Disaster Rescue & Risk Mapping (Coming in future SIH phase)"
+            onClick={onNavigateDisaster}
+            tooltip="3D Volumetric Disaster & Rescue Command Interface"
           />
         </div>
 

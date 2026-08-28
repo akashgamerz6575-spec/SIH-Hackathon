@@ -87,7 +87,12 @@ export function CommandCenter() {
       <TopBar
         onSelectSearchResult={handleSearchSelect}
         selection={state.selection}
-        onNavigateCommandCenter={handleResetAll}
+        activeView={state.viewMode}
+        onNavigateCommandCenter={() => {
+          state.setViewMode('command');
+          handleResetAll();
+        }}
+        onNavigateDisaster={() => state.setViewMode('disaster')}
         onOpenCreateProperty={() => setIsCreateModalOpen(true)}
         isGeneratedActive={state.isGeneratedActive}
         hasGeneratedProperty={!!state.generatedParcel}
@@ -147,6 +152,10 @@ export function CommandCenter() {
             onHome={handleHomeCamera}
             onFocus={handleFocusSelection}
             onReset={handleResetAll}
+            isRescueActive={state.viewMode === 'disaster'}
+            onToggleRescueView={() =>
+              state.setViewMode(state.viewMode === 'disaster' ? 'command' : 'disaster')
+            }
           />
         </main>
 
