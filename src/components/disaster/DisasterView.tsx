@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import type { Parcel, SelectionState } from '@/types/property';
-import type { DisasterDataset, FloorEmergencyData, IncidentEvent } from '@/types/disaster';
+import type { DisasterDataset, FloorEmergencyData, IncidentEvent, FloorPriorityResult } from '@/types/disaster';
 import { IncidentPanel } from './IncidentPanel';
 import { RiskPanel } from './RiskPanel';
 import { OccupantPanel } from './OccupantPanel';
@@ -8,7 +8,8 @@ import { RescueTeamsPanel } from './RescueTeamsPanel';
 import { EmergencyPointsPanel } from './EmergencyPointsPanel';
 import { CommunicationPanel } from './CommunicationPanel';
 import { IncidentActivityFeed } from './IncidentActivityFeed';
-import { ShieldAlert, Layers, ArrowLeft, Siren, Sparkles, Building2, Flame } from 'lucide-react';
+import { PriorityQueuePanel } from './PriorityQueuePanel';
+import { ArrowLeft, Building2 } from 'lucide-react';
 
 interface DisasterViewProps {
   parcel: Parcel;
@@ -45,6 +46,12 @@ export function DisasterView({
     return criticalFloor || disasterData.floors.values().next().value;
   }, [selection, disasterData]);
 
+  // Resolve selected floor's priority result from the engine queue
+  const selectedPriorityResult: FloorPriorityResult | undefined = useMemo(() => {
+    if (!selectedFloorData) return undefined;
+    return disasterData.priorityQueue?.find((r) => r.floorId === selectedFloorData.floorId);
+  }, [selectedFloorData, disasterData.priorityQueue]);
+
   const handleTriggerCommunication = (
     title: string,
     description: string,
@@ -68,8 +75,8 @@ export function DisasterView({
 
   return (
     <>
-      {/* Left Panel: Incident Overview & Strata Sector Selector */}
-      <aside className="w-[340px] shrink-0 flex flex-col bg-base-950/85 backdrop-blur-xl border-r border-danger-500/20 z-10 overflow-hidden shadow-2xl">
+      {/* Left Panel: Incident Overview, Priority Queue & Strata Sector Selector */}
+      <aside className="w-[350px] shrink-0 flex flex-col bg-base-950/85 backdrop-blur-xl border-r border-danger-500/20 z-10 overflow-hidden shadow-2xl">
         {/* Top Emergency Header Bar */}
         <div className="p-3 bg-danger-950/40 border-b border-danger-500/25 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -92,6 +99,17 @@ export function DisasterView({
         <div className="flex-1 overflow-y-auto scrollbar-thin p-3 space-y-3">
           <IncidentPanel incident={disasterData.incident} />
 
+          {/* Rescue Priority Queue Section */}
+          {disasterData.priorityQueue && disasterData.priorityQueue.length > 0 && (
+            <PriorityQueuePanel
+              priorityQueue={disasterData.priorityQueue}
+              selectedFloorId={selectedFloorData?.floorId}
+              onSelectFloor={(floorId) => {
+                if (firstBuilding) onSelectFloor(firstBuilding.id, floorId);
+              }}
+            />
+          )}
+
           {/* Interactive Floor Strata Emergency Matrix */}
           {firstBuilding && (
             <div className="p-3 bg-base-900/80 border border-white/[0.08] rounded-xl space-y-2">
@@ -107,6 +125,7 @@ export function DisasterView({
               <div className="space-y-1.5">
                 {[...firstBuilding.floors].reverse().map((floor) => {
                   const emergency = disasterData.floors.get(floor.id);
+                  const priorityRes = disasterData.priorityQueue?.find((r) => r.floorId === floor.id);
                   const isSelected =
                     selection.kind === 'floor'
                       ? selection.floorId === floor.id
@@ -114,19 +133,24 @@ export function DisasterView({
 
                   let statusBadge = 'bg-slate-500/20 text-slate-400 border-slate-500/30';
                   let borderLeft = 'border-l-2 border-slate-600';
+                  let priorityBadgeColor = 'bg-slate-500/20 text-slate-400 border-slate-500/30';
 
-                  if (emergency?.emergencyStatus === 'CRITICAL') {
+                  if (emergency?.priority === 'P1' || priorityRes?.priority === 'P1') {
                     statusBadge = 'bg-danger-500/25 text-danger-300 border-danger-500/40';
                     borderLeft = 'border-l-4 border-danger-500';
-                  } else if (emergency?.emergencyStatus === 'AT_RISK') {
+                    priorityBadgeColor = 'bg-danger-500/30 text-danger-200 border-danger-500/60 font-black';
+                  } else if (emergency?.priority === 'P2' || priorityRes?.priority === 'P2') {
                     statusBadge = 'bg-orange-500/25 text-orange-300 border-orange-500/40';
                     borderLeft = 'border-l-4 border-orange-500';
-                  } else if (emergency?.emergencyStatus === 'AFFECTED') {
+                    priorityBadgeColor = 'bg-orange-500/30 text-orange-200 border-orange-500/60 font-bold';
+                  } else if (emergency?.priority === 'P3' || priorityRes?.priority === 'P3') {
                     statusBadge = 'bg-amber-500/25 text-amber-300 border-amber-500/40';
                     borderLeft = 'border-l-4 border-amber-500';
-                  } else if (emergency?.emergencyStatus === 'SAFE') {
+                    priorityBadgeColor = 'bg-amber-500/30 text-amber-200 border-amber-500/60';
+                  } else if (emergency?.emergencyStatus === 'SAFE' || priorityRes?.priority === 'P4') {
                     statusBadge = 'bg-success-500/25 text-success-300 border-success-500/40';
                     borderLeft = 'border-l-4 border-success-500';
+                    priorityBadgeColor = 'bg-success-500/30 text-success-200 border-success-500/60';
                   }
 
                   return (
@@ -143,7 +167,7 @@ export function DisasterView({
                       <div className="space-y-0.5">
                         <div className="font-bold text-slate-100 flex items-center gap-1.5">
                           <span>{floor.label}</span>
-                          {emergency?.priority === 'P1' && (
+                          {(emergency?.priority === 'P1' || priorityRes?.priority === 'P1') && (
                             <span className="h-1.5 w-1.5 rounded-full bg-danger-500 animate-ping" />
                           )}
                         </div>
@@ -153,11 +177,16 @@ export function DisasterView({
                       </div>
 
                       <div className="text-right space-y-1">
-                        <span className={`px-1.5 py-0.5 rounded text-[8.5px] font-mono font-bold border ${statusBadge}`}>
-                          {emergency?.emergencyStatus}
-                        </span>
+                        <div className="flex items-center gap-1 justify-end">
+                          <span className={`px-1.5 py-0.2 rounded text-[8.5px] font-mono border ${statusBadge}`}>
+                            {emergency?.emergencyStatus}
+                          </span>
+                          <span className={`px-1.5 py-0.2 rounded text-[8.5px] font-mono border ${priorityBadgeColor}`}>
+                            {priorityRes?.priority || emergency?.priority}
+                          </span>
+                        </div>
                         <div className="text-[8.5px] text-slate-500 font-mono">
-                          {emergency?.priority}
+                          Score: {priorityRes?.score ?? 0}/100
                         </div>
                       </div>
                     </button>
@@ -215,9 +244,16 @@ export function DisasterView({
         <div className="flex-1 overflow-y-auto scrollbar-thin p-3 space-y-3">
           {activeTab === 'response' && (
             <>
-              <RiskPanel floorData={selectedFloorData} />
+              <RiskPanel
+                floorData={selectedFloorData}
+                priorityResult={selectedPriorityResult}
+              />
               <OccupantPanel floorData={selectedFloorData} />
-              <CommunicationPanel onTriggerEvent={handleTriggerCommunication} />
+              <CommunicationPanel
+                onTriggerEvent={handleTriggerCommunication}
+                floorData={selectedFloorData}
+                priorityResult={selectedPriorityResult}
+              />
             </>
           )}
 
@@ -230,7 +266,11 @@ export function DisasterView({
                   if (firstBuilding) onSelectFloor(firstBuilding.id, floorId);
                 }}
               />
-              <CommunicationPanel onTriggerEvent={handleTriggerCommunication} />
+              <CommunicationPanel
+                onTriggerEvent={handleTriggerCommunication}
+                floorData={selectedFloorData}
+                priorityResult={selectedPriorityResult}
+              />
             </>
           )}
 
@@ -242,7 +282,11 @@ export function DisasterView({
                 activeRouteId={disasterData.activeRouteId}
                 onSelectRoute={onSelectRoute}
               />
-              <CommunicationPanel onTriggerEvent={handleTriggerCommunication} />
+              <CommunicationPanel
+                onTriggerEvent={handleTriggerCommunication}
+                floorData={selectedFloorData}
+                priorityResult={selectedPriorityResult}
+              />
             </>
           )}
         </div>

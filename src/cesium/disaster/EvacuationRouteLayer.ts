@@ -9,7 +9,7 @@ export interface EvacuationRouteEntities {
 
 /**
  * Creates a glowing 3D evacuation corridor along the selected route with
- * clear start and destination markers.
+ * concise start and destination markers.
  */
 export function createEvacuationRouteEntity(
   viewer: Cesium.Viewer,
@@ -81,7 +81,7 @@ export function createEvacuationRouteEntity(
       outlineWidth: 2,
     },
     label: {
-      text: `🏁 SAFE ASSEMBLY POINT: ${route.destinationName.toUpperCase()} (~${route.estimatedTimeMinutes} MIN WALK)`,
+      text: `🏁 ${route.destinationName.toUpperCase()} (~${route.estimatedTimeMinutes} MIN WALK)`,
       font: 'bold 11px Inter, system-ui, sans-serif',
       fillColor: Cesium.Color.fromCssColorString('#86efac'),
       outlineColor: Cesium.Color.fromCssColorString('#020617'),
@@ -89,10 +89,10 @@ export function createEvacuationRouteEntity(
       style: Cesium.LabelStyle.FILL_AND_OUTLINE,
       showBackground: true,
       backgroundColor: Cesium.Color.fromCssColorString('#052e16').withAlpha(0.94),
-      backgroundPadding: new Cesium.Cartesian2(10, 5),
+      backgroundPadding: new Cesium.Cartesian2(9, 4),
       verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
       horizontalOrigin: Cesium.HorizontalOrigin.CENTER,
-      pixelOffset: new Cesium.Cartesian2(0, -22),
+      pixelOffset: new Cesium.Cartesian2(0, -20),
       disableDepthTestDistance: Number.POSITIVE_INFINITY,
     },
   });

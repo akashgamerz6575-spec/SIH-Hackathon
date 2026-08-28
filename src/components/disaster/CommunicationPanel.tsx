@@ -1,12 +1,39 @@
 import { useState } from 'react';
-import { Radio, Megaphone, Siren, HeartPulse, CheckCircle2, ShieldPlus, Send, Sparkles } from 'lucide-react';
+import {
+  Radio,
+  Megaphone,
+  Siren,
+  HeartPulse,
+  CheckCircle2,
+  ShieldPlus,
+  Send,
+} from 'lucide-react';
+import type { FloorEmergencyData, FloorPriorityResult } from '@/types/disaster';
 
 interface CommunicationPanelProps {
-  onTriggerEvent: (title: string, description: string, severity: 'CRITICAL' | 'WARNING' | 'INFO' | 'SUCCESS') => void;
+  onTriggerEvent: (
+    title: string,
+    description: string,
+    severity: 'CRITICAL' | 'WARNING' | 'INFO' | 'SUCCESS',
+  ) => void;
+  floorData?: FloorEmergencyData;
+  priorityResult?: FloorPriorityResult;
 }
 
-export function CommunicationPanel({ onTriggerEvent }: CommunicationPanelProps) {
+export function CommunicationPanel({
+  onTriggerEvent,
+  floorData,
+  priorityResult,
+}: CommunicationPanelProps) {
   const [lastAction, setLastAction] = useState<string | null>(null);
+
+  const floorLabel = floorData?.floorLabel || 'Floor 03';
+  const recommendedTeam =
+    priorityResult?.recommendedTeamCallSign ||
+    priorityResult?.recommendedTeamName ||
+    'NDRF Eagle-1';
+  const vulnerableCount = floorData?.vulnerableOccupants ?? 2;
+  const occupants = floorData?.estimatedOccupants ?? 6;
 
   const handleAction = (
     title: string,
@@ -25,7 +52,7 @@ export function CommunicationPanel({ onTriggerEvent }: CommunicationPanelProps) 
         <div className="flex items-center gap-2">
           <Radio className="h-4 w-4 text-accent-400" />
           <span className="text-xs font-bold text-slate-100 uppercase tracking-tight">
-            Emergency Field Directives (Functional Actions)
+            Emergency Field Directives ({floorLabel})
           </span>
         </div>
         {lastAction && (
@@ -41,8 +68,8 @@ export function CommunicationPanel({ onTriggerEvent }: CommunicationPanelProps) 
           type="button"
           onClick={() =>
             handleAction(
-              'Public Evacuation Siren & SMS Broadcasted',
-              'High-priority audio siren & localized SMS blast issued for all building occupants.',
+              `Public Evacuation Alert Issued for ${floorLabel}`,
+              `High-priority audio siren & localized SMS blast issued for ${occupants} occupants on ${floorLabel}.`,
               'CRITICAL',
               'Public Alert',
             )
@@ -63,10 +90,10 @@ export function CommunicationPanel({ onTriggerEvent }: CommunicationPanelProps) 
           type="button"
           onClick={() =>
             handleAction(
-              'NDRF Team Alpha Direct Rescue Directive Issued',
-              'Sector command authorized hydraulic stairwell breach equipment on Floor 03.',
+              `Rescue Directive Dispatched: ${recommendedTeam} → ${floorLabel}`,
+              `Tactical breach directive transmitted to ${recommendedTeam} for immediate intervention on ${floorLabel} (${floorData?.accessStatus || 'BLOCKED'} access).`,
               'WARNING',
-              'NDRF Dispatch',
+              'Unit Dispatch',
             )
           }
           className="p-2.5 rounded-lg bg-orange-500/15 border border-orange-500/30 text-orange-300 hover:bg-orange-500/25 hover:border-orange-500/50 transition-all text-left group"
@@ -76,7 +103,7 @@ export function CommunicationPanel({ onTriggerEvent }: CommunicationPanelProps) 
             <span className="text-xs font-bold">Notify Rescue Team</span>
           </div>
           <span className="text-[9px] text-slate-400 block leading-tight">
-            Transmit 3D strata coordinates & hazard specs to NDRF Eagle-1
+            Transmit 3D strata coordinates & hazard specs to {recommendedTeam}
           </span>
         </button>
 
@@ -85,8 +112,8 @@ export function CommunicationPanel({ onTriggerEvent }: CommunicationPanelProps) 
           type="button"
           onClick={() =>
             handleAction(
-              '108 Advanced Life Support Unit Staged',
-              'Triage corridor pre-cleared at Assembly Point A with oxygen & burn kits.',
+              `ALS Medical Alert: ${vulnerableCount} Vulnerable on ${floorLabel}`,
+              `108 ALS Trauma unit staged with pediatric/geriatric life support for ${vulnerableCount} vulnerable occupants.`,
               'INFO',
               'Medical Notify',
             )
@@ -107,10 +134,10 @@ export function CommunicationPanel({ onTriggerEvent }: CommunicationPanelProps) 
           type="button"
           onClick={() =>
             handleAction(
-              'Volumetric Evacuation Protocol: IN PROGRESS',
-              'Incident Commander logged official evacuation commencement timestamp.',
+              `Evacuation Protocol Updated for ${floorLabel}`,
+              `Incident Commander logged official evacuation order for ${floorLabel} (${occupants} occupants).`,
               'INFO',
-              'Evac Started',
+              'Evac Status',
             )
           }
           className="p-2.5 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-300 hover:bg-amber-500/25 hover:border-amber-500/50 transition-all text-left group"
@@ -129,8 +156,8 @@ export function CommunicationPanel({ onTriggerEvent }: CommunicationPanelProps) 
           type="button"
           onClick={() =>
             handleAction(
-              'State Disaster Authority Reinforcements Requested',
-              'Additional structural engineering marshals & aerial drone units requested.',
+              `SEOC Escalation for ${floorLabel} (${floorData?.priority || 'P1'} Hazard)`,
+              `State Emergency Operations Center requested for additional structural engineering marshals & drone survey on ${floorLabel}.`,
               'WARNING',
               'Reinforcements',
             )
@@ -151,8 +178,8 @@ export function CommunicationPanel({ onTriggerEvent }: CommunicationPanelProps) 
           type="button"
           onClick={() =>
             handleAction(
-              'Live Incident SitRep Broadcasted',
-              'Updated 3D Cadastral building health & resident manifest pushed to all agencies.',
+              `Live 3D SitRep Broadcasted for ${floorLabel}`,
+              `Updated 3D Cadastral building health & resident manifest for ${floorLabel} pushed to all disaster agencies.`,
               'SUCCESS',
               'SitRep Sent',
             )

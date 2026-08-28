@@ -104,6 +104,32 @@ export interface IncidentSummary {
   activeTeamsCount: number;
 }
 
+/** Result from the Rescue Priority Engine for a single floor */
+export interface FloorPriorityResult {
+  floorId: string;
+  floorName: string;
+  score: number;
+  priority: RescuePriority;
+  priorityLabel: string;
+  reasons: string[];
+  occupantCount: number;
+  vulnerableCount: number;
+  recommendedTeamId: string | null;
+  recommendedTeamName: string | null;
+  recommendedTeamCallSign: string | null;
+  estimatedResponseTime: string;
+  confidence: number;
+  factorScores: {
+    structural: number;
+    fireSmoke: number;
+    occupant: number;
+    vulnerable: number;
+    access: number;
+    evacuation: number;
+    teamProximity: number;
+  };
+}
+
 export interface DisasterDataset {
   incident: IncidentSummary;
   floors: Map<string, FloorEmergencyData>;
@@ -112,4 +138,7 @@ export interface DisasterDataset {
   routes: EvacuationRoute[];
   activeRouteId: string;
   events: IncidentEvent[];
+  /** Rescue Priority Queue — sorted by score descending (P1 first) */
+  priorityQueue: FloorPriorityResult[];
 }
+

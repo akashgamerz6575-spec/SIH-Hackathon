@@ -8,7 +8,9 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit -p tsconfig.app.json"
+    "typecheck": "tsc --noEmit -p tsconfig.app.json",
+    "test:geometry": "node -e \"import('vite').then(async ({ createServer }) => { const server = await createServer(); await server.ssrLoadModule('./src/services/verification/__tests__/geometryVerification.test.ts'); await server.close(); })\"",
+    "test": "npm run test:geometry"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4",

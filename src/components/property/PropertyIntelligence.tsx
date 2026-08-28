@@ -16,6 +16,8 @@ import { StatusBadge } from '@/components/ui/StatusBadge';
 import { ULPINCard } from '@/components/ulpin/ULPINCard';
 import { resolveSelectedBuilding, resolveSelectedFloor } from '@/utils/selection';
 import { verificationClass, verificationLabel } from '@/utils/status';
+import { generateFloorEvidenceRecord } from '@/services/verification/EvidenceService';
+import { VerificationEvidencePanel } from '@/components/property/VerificationEvidencePanel';
 
 interface PropertyIntelligenceProps {
   parcel: Parcel;
@@ -191,6 +193,12 @@ export function PropertyIntelligence({
             {/* ULPIN Card at the top for prominence */}
             <ULPINCard ulpin={floor.ulpin} floorLabel={floor.label} />
 
+            {/* Ground-Truth Evidence Layer Panel */}
+            <VerificationEvidencePanel
+              evidence={generateFloorEvidenceRecord(floor, building, parcel)}
+              onFocusFloorInCesium={() => onSelectFloor?.(building.id, floor.id)}
+            />
+
             <DetailCard title="Floor Information">
               <DetailRow
                 icon={<Layers className="h-3.5 w-3.5" />}
@@ -230,7 +238,7 @@ export function PropertyIntelligence({
             </DetailCard>
 
             {/* Floor Status & Verification */}
-            <DetailCard title="Floor Verification Status">
+            <DetailCard title="Administrative Title Status">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] text-slate-500 flex items-center gap-1.5">
                   <ShieldCheck className="h-3.5 w-3.5" /> Verification State

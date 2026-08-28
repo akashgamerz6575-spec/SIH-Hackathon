@@ -272,27 +272,31 @@ export class CesiumSceneAdapter implements ICesiumAdapter {
       let labelBg = '#0f172a';
       let statusTag: string = emergencyFloor.emergencyStatus;
 
+      const priority =
+        disasterData.priorityQueue?.find((r) => r.floorId === floorId)?.priority ||
+        emergencyFloor.priority;
+
       switch (emergencyFloor.emergencyStatus) {
         case 'CRITICAL':
           fill = '#dc2626'; // Red
           edge = '#ef4444';
           labelFill = '#fca5a5';
           labelBg = '#450a0a';
-          statusTag = '🔥 CRITICAL (P1)';
+          statusTag = `CRITICAL • ${priority}`;
           break;
         case 'AT_RISK':
           fill = '#ea580c'; // Orange
           edge = '#f97316';
           labelFill = '#fed7aa';
           labelBg = '#431407';
-          statusTag = 'AT RISK (P2)';
+          statusTag = `AT RISK • ${priority}`;
           break;
         case 'AFFECTED':
           fill = '#d97706'; // Amber
           edge = '#fbbf24';
           labelFill = '#fde68a';
           labelBg = '#422006';
-          statusTag = 'AFFECTED (P3)';
+          statusTag = `AFFECTED • ${priority}`;
           break;
         case 'SAFE':
         default:
@@ -300,14 +304,14 @@ export class CesiumSceneAdapter implements ICesiumAdapter {
           edge = '#38bdf8';
           labelFill = '#a5f3fc';
           labelBg = '#083344';
-          statusTag = 'CLEARED (P4)';
+          statusTag = `CLEARED • ${priority}`;
           break;
       }
 
       if (record.floor.kind === 'basement') {
         fill = '#0f2b38';
         edge = '#06b6d4';
-        statusTag = 'VAULT (P3)';
+        statusTag = `VAULT • ${priority}`;
       }
 
       const isSelected = floorId === this.currentSelection.floorId;

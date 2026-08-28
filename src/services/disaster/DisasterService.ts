@@ -9,6 +9,7 @@ import type {
 } from '@/types/disaster';
 import { calculateRescuePriority } from './RescuePriorityService';
 import { generateEvacuationRoutes } from './EvacuationService';
+import { calculateAllFloorPriorities, type RescuePriorityInput } from './RescuePriorityEngine';
 
 /**
  * Generates a realistic, deterministic simulated disaster dataset
@@ -143,7 +144,7 @@ export function createDisasterDataset(parcel: Parcel): DisasterDataset {
     }
   }
 
-  // Active Rescue Teams stationed around property
+  // Active Rescue Teams stationed around property (Cleanly spaced)
   const teams: RescueTeam[] = [
     {
       id: 'team-alpha',
@@ -154,8 +155,8 @@ export function createDisasterDataset(parcel: Parcel): DisasterDataset {
       etaMinutes: 0,
       personnelCount: 8,
       callSign: 'EAGLE-1',
-      longitude: lon - 25 * mToDegLon,
-      latitude: lat + 20 * mToDegLat,
+      longitude: lon - 35 * mToDegLon,
+      latitude: lat + 25 * mToDegLat,
     },
     {
       id: 'team-fire-04',
@@ -166,8 +167,8 @@ export function createDisasterDataset(parcel: Parcel): DisasterDataset {
       etaMinutes: 0,
       personnelCount: 6,
       callSign: 'BLAZE-4',
-      longitude: lon + 35 * mToDegLon,
-      latitude: lat + 25 * mToDegLat,
+      longitude: lon + 40 * mToDegLon,
+      latitude: lat + 35 * mToDegLat,
     },
     {
       id: 'team-medical-02',
@@ -178,7 +179,7 @@ export function createDisasterDataset(parcel: Parcel): DisasterDataset {
       personnelCount: 4,
       callSign: 'MEDIC-2',
       longitude: lon - 45 * mToDegLon,
-      latitude: lat - 30 * mToDegLat,
+      latitude: lat - 35 * mToDegLat,
     },
     {
       id: 'team-search-bravo',
@@ -188,8 +189,8 @@ export function createDisasterDataset(parcel: Parcel): DisasterDataset {
       etaMinutes: 3,
       personnelCount: 10,
       callSign: 'SEARCH-9',
-      longitude: lon + 80 * mToDegLon,
-      latitude: lat - 60 * mToDegLat,
+      longitude: lon + 55 * mToDegLon,
+      latitude: lat - 45 * mToDegLat,
     },
   ];
 
@@ -233,8 +234,8 @@ export function createDisasterDataset(parcel: Parcel): DisasterDataset {
       kind: 'HAZARD_POINT',
       status: 'ACTIVE',
       distanceMeters: 45,
-      longitude: lon + 30 * mToDegLon,
-      latitude: lat + 15 * mToDegLat,
+      longitude: lon - 15 * mToDegLon,
+      latitude: lat + 38 * mToDegLat,
       contactNumber: 'Control Room Field Line',
     },
     {
@@ -243,8 +244,8 @@ export function createDisasterDataset(parcel: Parcel): DisasterDataset {
       kind: 'BLOCKED_ROAD',
       status: 'ACTIVE',
       distanceMeters: 110,
-      longitude: lon + 70 * mToDegLon,
-      latitude: lat + 80 * mToDegLat,
+      longitude: lon + 85 * mToDegLon,
+      latitude: lat + 60 * mToDegLat,
       contactNumber: 'Traffic Police Desk',
     },
   ];
@@ -307,6 +308,41 @@ export function createDisasterDataset(parcel: Parcel): DisasterDataset {
     activeTeamsCount: teams.length,
   };
 
+  // ── Rescue Priority Engine: Calculate Priority Queue ──────────────
+  const priorityInputs: RescuePriorityInput[] = Array.from(floorsMap.values()).map(
+    (floorData) => ({
+      floorId: floorData.floorId,
+      floorName: floorData.floorLabel,
+      structuralRisk: floorData.structuralRisk,
+      fireRisk: floorData.fireRisk,
+      accessStatus: floorData.accessStatus,
+      evacuationStatus: floorData.evacuationStatus,
+      estimatedOccupants: floorData.estimatedOccupants,
+      vulnerableOccupants: floorData.vulnerableOccupants,
+      availableTeams: teams,
+    }),
+  );
+
+  const priorityQueue = calculateAllFloorPriorities(priorityInputs);
+
+  // Add a single Rescue Priority Calculated event
+  const p1Floor = priorityQueue.find((r) => r.priority === 'P1');
+  if (p1Floor) {
+    events.push({
+      id: 'evt-priority-calc',
+      timestamp: new Date(Date.now() - 2 * 60000).toISOString(),
+      timeFormatted: new Date(Date.now() - 2 * 60000).toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+      }),
+      title: 'Rescue Priority Engine — Classification Complete',
+      description: `${p1Floor.floorName} classified P1 Immediate Rescue (Score: ${p1Floor.score}/100). Reason: ${p1Floor.reasons.slice(0, 3).join(', ')}. Recommended unit: ${p1Floor.recommendedTeamCallSign || 'Awaiting assignment'}.`,
+      severity: 'CRITICAL',
+      source: 'Rescue Priority Engine v1.0',
+    });
+  }
+
   return {
     incident,
     floors: floorsMap,
@@ -315,5 +351,6 @@ export function createDisasterDataset(parcel: Parcel): DisasterDataset {
     routes,
     activeRouteId: routes[0]?.id || '',
     events,
+    priorityQueue,
   };
 }

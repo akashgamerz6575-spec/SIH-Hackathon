@@ -10,7 +10,7 @@ export interface DisasterZoneEntities {
 
 /**
  * Creates concentric 3D multi-level emergency risk and impact zones in Cesium
- * with clean, high-contrast, non-overlapping perimeter badges.
+ * with clean, concise, non-overlapping perimeter badges.
  */
 export function createDisasterZoneEntities(
   viewer: Cesium.Viewer,
@@ -28,7 +28,7 @@ export function createDisasterZoneEntities(
       semiMinorAxis: 35,
       semiMajorAxis: 35,
       height: 0.3,
-      material: Cesium.Color.fromCssColorString('#dc2626').withAlpha(0.25),
+      material: Cesium.Color.fromCssColorString('#dc2626').withAlpha(0.24),
       outline: true,
       outlineColor: Cesium.Color.fromCssColorString('#ef4444').withAlpha(0.9),
       outlineWidth: 3,
@@ -44,7 +44,7 @@ export function createDisasterZoneEntities(
       semiMinorAxis: 70,
       semiMajorAxis: 70,
       height: 0.2,
-      material: Cesium.Color.fromCssColorString('#ea580c').withAlpha(0.15),
+      material: Cesium.Color.fromCssColorString('#ea580c').withAlpha(0.14),
       outline: true,
       outlineColor: Cesium.Color.fromCssColorString('#f97316').withAlpha(0.85),
       outlineWidth: 2,
@@ -60,7 +60,7 @@ export function createDisasterZoneEntities(
       semiMinorAxis: 120,
       semiMajorAxis: 120,
       height: 0.15,
-      material: Cesium.Color.fromCssColorString('#d97706').withAlpha(0.08),
+      material: Cesium.Color.fromCssColorString('#d97706').withAlpha(0.07),
       outline: true,
       outlineColor: Cesium.Color.fromCssColorString('#fbbf24').withAlpha(0.75),
       outlineWidth: 2,
@@ -83,33 +83,31 @@ export function createDisasterZoneEntities(
     },
   });
 
-  // High-contrast, spatially distributed perimeter badges placed at distinct cardinal points
-  // to avoid overlapping with building geometry or rescue team markers
   const labels: Cesium.Entity[] = [];
   const mToDegLon = 1 / (111320 * Math.cos((lat * Math.PI) / 180));
   const mToDegLat = 1 / 110574;
 
   const zoneBadges = [
     {
-      text: '⚠️ CRITICAL IMPACT ZONE (35m)',
-      offsetLon: -25,
+      text: '⚠️ CRITICAL (35m)',
+      offsetLon: -22,
       offsetLat: 28,
       color: '#fca5a5',
       bgColor: '#450a0a',
       borderColor: '#ef4444',
     },
     {
-      text: '⚡ HIGH RISK HAZARD BUFFER (70m)',
-      offsetLon: 60,
-      offsetLat: -35,
+      text: '⚡ HIGH RISK (70m)',
+      offsetLon: 0,
+      offsetLat: -68,
       color: '#fdba74',
       bgColor: '#431407',
       borderColor: '#f97316',
     },
     {
-      text: '🛡️ SAFE EVACUATION PERIMETER (200m)',
-      offsetLon: -140,
-      offsetLat: -130,
+      text: '🛡️ SAFE ZONE (200m)',
+      offsetLon: -130,
+      offsetLat: -60,
       color: '#86efac',
       bgColor: '#052e16',
       borderColor: '#22c55e',
@@ -132,7 +130,7 @@ export function createDisasterZoneEntities(
         style: Cesium.LabelStyle.FILL_AND_OUTLINE,
         showBackground: true,
         backgroundColor: Cesium.Color.fromCssColorString(item.bgColor).withAlpha(0.92),
-        backgroundPadding: new Cesium.Cartesian2(10, 5),
+        backgroundPadding: new Cesium.Cartesian2(8, 4),
         verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
         horizontalOrigin: Cesium.HorizontalOrigin.CENTER,
         disableDepthTestDistance: Number.POSITIVE_INFINITY,

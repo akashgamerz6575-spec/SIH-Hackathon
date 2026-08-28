@@ -1,4 +1,4 @@
-import type { Parcel, SearchEntry } from '@/types/property';
+import type { Parcel, SearchEntry } from '../types/property';
 
 /**
  * Centralized sample property dataset for the 3D ULPIN prototype.
