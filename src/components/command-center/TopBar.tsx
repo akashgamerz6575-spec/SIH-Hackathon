@@ -120,11 +120,6 @@ export function TopBar({
           </div>
         )}
 
-        {/* Runtime Debug Marker — ALWAYS VISIBLE to prove correct build is loaded */}
-        <div className="flex items-center gap-1 text-[9px] font-mono text-accent-400 bg-accent-500/10 px-2 py-0.5 rounded border border-accent-500/25">
-          <span>BUILD: CONFIRMED-DIMS-V2</span>
-        </div>
-
         {/* System status */}
         <div className="hidden md:flex items-center gap-1.5 text-[10px]">
           <span className="h-1.5 w-1.5 rounded-full bg-success-500 animate-pulse-soft" />
