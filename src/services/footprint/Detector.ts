@@ -222,7 +222,7 @@ export class CanvasFootprintDetector implements IFootprintDetector {
 
     const normWidth = coreWidth / sampleWidth;
     const normHeight = coreHeight / sampleHeight;
-    const aspectRatio = normWidth / (normHeight || 1);
+    const aspectRatio = coreWidth / (coreHeight || 1);
 
     // Factual Quality Assessment
     let quality: DetectionQuality = 'GOOD';

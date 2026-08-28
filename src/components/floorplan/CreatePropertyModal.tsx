@@ -146,7 +146,7 @@ export function CreatePropertyModal({
             depthMeters: 14.5,
           });
         } else if (result.aspectRatio > 0) {
-          const isNearRef = Math.abs(result.aspectRatio - 18.0 / 14.5) < 0.15;
+          const isNearRef = Math.abs(result.aspectRatio - 18.0 / 14.5) < 0.25;
           const initialWidth = 18.0;
           const initialDepth = isNearRef
             ? 14.5
@@ -410,12 +410,13 @@ export function CreatePropertyModal({
                         min="1"
                         max="100"
                         value={confirmedDimensions.widthMeters}
-                        onChange={(e) =>
-                          setConfirmedDimensions({
-                            ...confirmedDimensions,
-                            widthMeters: Math.max(1, parseFloat(e.target.value) || 18.0),
-                          })
-                        }
+                        onChange={(e) => {
+                          const val = parseFloat(e.target.value);
+                          setConfirmedDimensions((prev) => ({
+                            ...prev,
+                            widthMeters: isNaN(val) ? 18.0 : val,
+                          }));
+                        }}
                         className="w-full bg-base-800/80 border border-white/[0.08] rounded-md px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-accent-500/40 font-mono"
                       />
                       <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-slate-500 font-mono">
@@ -434,12 +435,13 @@ export function CreatePropertyModal({
                         min="1"
                         max="100"
                         value={confirmedDimensions.depthMeters}
-                        onChange={(e) =>
-                          setConfirmedDimensions({
-                            ...confirmedDimensions,
-                            depthMeters: Math.max(1, parseFloat(e.target.value) || 14.5),
-                          })
-                        }
+                        onChange={(e) => {
+                          const val = parseFloat(e.target.value);
+                          setConfirmedDimensions((prev) => ({
+                            ...prev,
+                            depthMeters: isNaN(val) ? 14.5 : val,
+                          }));
+                        }}
                         className="w-full bg-base-800/80 border border-white/[0.08] rounded-md px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-accent-500/40 font-mono"
                       />
                       <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-slate-500 font-mono">
