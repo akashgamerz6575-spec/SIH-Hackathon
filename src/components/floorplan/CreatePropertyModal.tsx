@@ -16,7 +16,12 @@ import {
 import { defaultDetector } from '@/services/footprint/Detector';
 import { generatePropertyFromFloorplan } from '@/services/generator/PropertyGenerator';
 import { FootprintOverlayCanvas } from './FootprintOverlayCanvas';
-import type { DetectedFootprint, BuildingParameters, FloorplanImageSource } from '@/types/floorplan';
+import type {
+  DetectedFootprint,
+  BuildingParameters,
+  FloorplanImageSource,
+  ConfirmedDimensions,
+} from '@/types/floorplan';
 import type { Parcel } from '@/types/property';
 
 interface CreatePropertyModalProps {
@@ -75,11 +80,6 @@ const SAMPLE_FLOORPLAN_SVG = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.
   <text x="535" y="210" fill="%2394a3b8" font-size="15" font-family="sans-serif" text-anchor="middle">SUITE 02</text>
   <text x="265" y="430" fill="%2394a3b8" font-size="15" font-family="sans-serif" text-anchor="middle">SUITE 03</text>
   <text x="535" y="430" fill="%2394a3b8" font-size="15" font-family="sans-serif" text-anchor="middle">SUITE 04</text>
-
-  <!-- Architectural Title & Metadata Block (Bottom) -->
-  <rect x="130" y="565" width="540" height="55" fill="%230f172a" stroke="%231e293b" stroke-width="1" rx="4" />
-  <text x="145" y="585" fill="%23e2e8f0" font-size="11" font-family="sans-serif" font-weight="bold">SIH26011 REFERENCE CADASTRE FLOORPLAN</text>
-  <text x="145" y="605" fill="%2338bdf8" font-size="10" font-family="monospace">Footprint: 18.00 m × 14.50 m | Built-up Area: 261.00 sq.m (≈ 2,809 sq.ft)</text>
 </svg>`;
 
 export function CreatePropertyModal({
@@ -93,14 +93,18 @@ export function CreatePropertyModal({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [detectedFootprint, setDetectedFootprint] = useState<DetectedFootprint | null>(null);
 
-  // User configured parameters initialized to reference 18.00m x 14.50m (261.00 sq.m ≈ 2,809 sq.ft)
+  // Authoritative physical dimensions confirmed by user (Single Source of Truth)
+  const [confirmedDimensions, setConfirmedDimensions] = useState<ConfirmedDimensions>({
+    widthMeters: 18.0,
+    depthMeters: 14.5,
+  });
+
+  // Vertical and identity parameters
   const [params, setParams] = useState<BuildingParameters>({
     floorsAbove: 4,
     basements: 1,
     floorHeight: 3.0,
     slabThickness: 0.2,
-    footprintWidth: 18.0,
-    footprintDepth: 14.5,
     propertyName: 'Apex Horizon — Cadastre Twin',
     parcelId: 'KA-BLR-GEN-002',
     buildingLabel: 'Tower 01',
@@ -117,6 +121,7 @@ export function CreatePropertyModal({
       setDetectedFootprint(null);
       setErrorMsg(null);
       setIsProcessing(false);
+      setConfirmedDimensions({ widthMeters: 18.0, depthMeters: 14.5 });
     }
   }, [isOpen]);
 
@@ -136,18 +141,20 @@ export function CreatePropertyModal({
 
         if (imgSrc.isPreset) {
           // Reference blueprint is explicitly 18.00m x 14.50m (261.00 sq.m = 2,809 sq.ft)
-          setParams((prev) => ({
-            ...prev,
-            footprintWidth: 18.0,
-            footprintDepth: 14.5,
-          }));
+          setConfirmedDimensions({
+            widthMeters: 18.0,
+            depthMeters: 14.5,
+          });
         } else if (result.aspectRatio > 0) {
           const isNearRef = Math.abs(result.aspectRatio - 18.0 / 14.5) < 0.15;
-          setParams((prev) => ({
-            ...prev,
-            footprintWidth: isNearRef ? 18.0 : prev.footprintWidth,
-            footprintDepth: isNearRef ? 14.5 : Number((prev.footprintWidth / result.aspectRatio).toFixed(1)),
-          }));
+          const initialWidth = 18.0;
+          const initialDepth = isNearRef
+            ? 14.5
+            : Number((initialWidth / result.aspectRatio).toFixed(1));
+          setConfirmedDimensions({
+            widthMeters: initialWidth,
+            depthMeters: initialDepth,
+          });
         }
 
         setIsProcessing(false);
@@ -199,19 +206,41 @@ export function CreatePropertyModal({
     runDetection(source);
   };
 
+  const handleConfirmFootprint = () => {
+    console.log('[CONFIRMED DIMENSIONS]', {
+      width: confirmedDimensions.widthMeters,
+      depth: confirmedDimensions.depthMeters,
+      area: confirmedDimensions.widthMeters * confirmedDimensions.depthMeters,
+    });
+    setStep('parameters');
+  };
+
   const handleGenerate = () => {
     if (!detectedFootprint || detectedFootprint.quality === 'FAILED') return;
+
+    console.log('[CONFIRMED DIMENSIONS BEFORE GENERATION]', {
+      width: confirmedDimensions.widthMeters,
+      depth: confirmedDimensions.depthMeters,
+      area: confirmedDimensions.widthMeters * confirmedDimensions.depthMeters,
+    });
+
     setStep('generating');
 
     setTimeout(() => {
-      const generatedParcel = generatePropertyFromFloorplan(detectedFootprint, params);
+      const generatedParcel = generatePropertyFromFloorplan(
+        detectedFootprint,
+        confirmedDimensions,
+        params,
+      );
       onGenerateProperty(generatedParcel);
       onClose();
-    }, 600);
+    }, 400);
   };
 
-  // Calculated area in sq.m and sq.ft
-  const areaSqM = Number((params.footprintWidth * params.footprintDepth).toFixed(2));
+  // Authoritative calculated area in sq.m and sq.ft from confirmed dimensions
+  const areaSqM = Number(
+    (confirmedDimensions.widthMeters * confirmedDimensions.depthMeters).toFixed(2),
+  );
   const areaSqFt = Math.round(areaSqM * 10.7639);
 
   return (
@@ -323,8 +352,8 @@ export function CreatePropertyModal({
               <FootprintOverlayCanvas
                 imageUrl={imageSource.imageUrl}
                 footprint={detectedFootprint}
-                footprintWidthM={params.footprintWidth}
-                footprintDepthM={params.footprintDepth}
+                footprintWidthM={confirmedDimensions.widthMeters}
+                footprintDepthM={confirmedDimensions.depthMeters}
               />
 
               {/* Quality & Detection Summary */}
@@ -363,7 +392,7 @@ export function CreatePropertyModal({
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2 text-xs font-semibold text-slate-300">
                     <Ruler className="h-3.5 w-3.5 text-accent-400" />
-                    <span>Physical Dimensions (18.00m × 14.50m)</span>
+                    <span>Physical Dimensions (User-Confirmed Authority)</span>
                   </div>
                   <span className="text-[10px] text-slate-400 font-mono">
                     {areaSqM} m² / {areaSqFt} sq.ft
@@ -378,13 +407,13 @@ export function CreatePropertyModal({
                       <input
                         type="number"
                         step="0.5"
-                        min="5"
+                        min="1"
                         max="100"
-                        value={params.footprintWidth}
+                        value={confirmedDimensions.widthMeters}
                         onChange={(e) =>
-                          setParams({
-                            ...params,
-                            footprintWidth: Math.max(1, parseFloat(e.target.value) || 18.0),
+                          setConfirmedDimensions({
+                            ...confirmedDimensions,
+                            widthMeters: Math.max(1, parseFloat(e.target.value) || 18.0),
                           })
                         }
                         className="w-full bg-base-800/80 border border-white/[0.08] rounded-md px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-accent-500/40 font-mono"
@@ -402,13 +431,13 @@ export function CreatePropertyModal({
                       <input
                         type="number"
                         step="0.5"
-                        min="5"
+                        min="1"
                         max="100"
-                        value={params.footprintDepth}
+                        value={confirmedDimensions.depthMeters}
                         onChange={(e) =>
-                          setParams({
-                            ...params,
-                            footprintDepth: Math.max(1, parseFloat(e.target.value) || 14.5),
+                          setConfirmedDimensions({
+                            ...confirmedDimensions,
+                            depthMeters: Math.max(1, parseFloat(e.target.value) || 14.5),
                           })
                         }
                         className="w-full bg-base-800/80 border border-white/[0.08] rounded-md px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-accent-500/40 font-mono"
@@ -433,7 +462,7 @@ export function CreatePropertyModal({
                     <span>Vertical Stacking Parameters</span>
                   </div>
                   <span className="text-[10px] text-accent-300 font-mono">
-                    Floor Area: ≈ {areaSqFt.toLocaleString()} sq.ft / slab
+                    Footprint: {confirmedDimensions.widthMeters}m × {confirmedDimensions.depthMeters}m (≈ {areaSqFt.toLocaleString()} sq.ft / slab)
                   </span>
                 </div>
 
@@ -571,7 +600,7 @@ export function CreatePropertyModal({
                 <Sparkles className="h-6 w-6 text-accent-400" />
               </div>
               <div className="text-sm font-semibold text-slate-200">
-                Generating 3D Property Geometry (18.00m × 14.50m)
+                Generating 3D Property Geometry ({confirmedDimensions.widthMeters}m × {confirmedDimensions.depthMeters}m)
               </div>
               <div className="text-xs text-slate-500">
                 Extruding {params.floorsAbove} floors above ground + {params.basements} basement ({areaSqFt.toLocaleString()} sq.ft per floor)...
@@ -601,7 +630,7 @@ export function CreatePropertyModal({
                 Change Image
               </button>
               <button
-                onClick={() => setStep('parameters')}
+                onClick={handleConfirmFootprint}
                 disabled={detectedFootprint?.quality === 'FAILED'}
                 className={`px-4 py-1.5 rounded-md text-xs font-medium flex items-center gap-1.5 transition-all ${
                   detectedFootprint?.quality === 'FAILED'

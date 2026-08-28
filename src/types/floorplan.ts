@@ -26,6 +26,13 @@ export interface DetectedFootprint {
   detectedAt: string;
 }
 
+export interface ConfirmedDimensions {
+  /** Confirmed width in meters (East-West) */
+  widthMeters: number;
+  /** Confirmed depth in meters (North-South) */
+  depthMeters: number;
+}
+
 export interface BuildingParameters {
   /** Number of above-ground floors (e.g., 4) */
   floorsAbove: number;
@@ -35,10 +42,6 @@ export interface BuildingParameters {
   floorHeight: number;
   /** Structural slab thickness in meters (e.g., 0.2m) */
   slabThickness: number;
-  /** User-specified real-world width in meters (East-West) */
-  footprintWidth: number;
-  /** User-specified real-world depth in meters (North-South) */
-  footprintDepth: number;
   /** Display label for the property */
   propertyName: string;
   /** Cadastral Parcel ID */

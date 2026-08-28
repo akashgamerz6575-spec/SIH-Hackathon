@@ -1,12 +1,9 @@
 import * as Cesium from 'cesium';
 import type { Parcel } from '@/types/property';
 
-// Parcel boundary: ~52m x 52m (centered around the 24m x 24m building)
-const PARCEL_HALF_SIZE_M = 26;
-
 /**
  * Builds the cadastral parcel boundary polygon and glowing perimeter polyline.
- * Coordinates are calculated from metric offsets to guarantee accurate ground dimensions.
+ * Dynamically frames the parcel relative to building width and depth.
  */
 export function createParcelEntity(
   viewer: Cesium.Viewer,
@@ -15,8 +12,15 @@ export function createParcelEntity(
   const lon = parcel.longitude;
   const lat = parcel.latitude;
 
-  const dLon = metersToDegreesLon(PARCEL_HALF_SIZE_M, lat);
-  const dLat = metersToDegreesLat(PARCEL_HALF_SIZE_M);
+  const firstBuilding = parcel.buildings[0];
+  const bldWidth = firstBuilding?.widthM || 24;
+  const bldDepth = firstBuilding?.depthM || 24;
+
+  const halfWidth = (bldWidth + 20) / 2;
+  const halfDepth = (bldDepth + 20) / 2;
+
+  const dLon = metersToDegreesLon(halfWidth, lat);
+  const dLat = metersToDegreesLat(halfDepth);
 
   const positions = Cesium.Cartesian3.fromDegreesArray([
     lon - dLon, lat - dLat,

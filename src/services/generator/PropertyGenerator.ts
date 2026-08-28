@@ -1,24 +1,44 @@
 import type { Parcel, Building, Floor } from '@/types/property';
-import type { DetectedFootprint, BuildingParameters } from '@/types/floorplan';
+import type { DetectedFootprint, BuildingParameters, ConfirmedDimensions } from '@/types/floorplan';
 import { PARCEL_LON, PARCEL_LAT } from '@/data/sampleProperty';
 
 /**
- * Converts confirmed 2D DetectedFootprint + BuildingParameters into a full 3D Parcel & Building dataset.
+ * Converts confirmed 2D DetectedFootprint + ConfirmedDimensions + BuildingParameters
+ * into a full 3D Parcel & Building dataset.
  *
- * For the reference 18.00m × 14.50m floorplan:
- * - Built-up floor area = 18.00 × 14.50 × 10.7639 ≈ 2,809 sq.ft (261.00 sq.m)
- * - Assigns consistent, accurate floor area to all vertical strata slabs.
+ * The confirmedDimensions object is the SINGLE AUTHORITATIVE SOURCE OF TRUTH for physical geometry.
  */
 export function generatePropertyFromFloorplan(
   _footprint: DetectedFootprint,
+  confirmedDimensions: ConfirmedDimensions,
   params: BuildingParameters,
 ): Parcel {
+  const width = confirmedDimensions.widthMeters;
+  const depth = confirmedDimensions.depthMeters;
+  const areaSqM = Number((width * depth).toFixed(2));
+  const singleFloorAreaSqft = Math.round(areaSqM * 10.7639);
+  const totalLandAreaSqft = Math.round(areaSqM * 1.5 * 10.7639);
+
+  // Temporary diagnostic logs
+  console.log('[GENERATOR INPUT]', {
+    width,
+    depth,
+    area: areaSqM,
+    calculatedSqft: singleFloorAreaSqft,
+  });
+
+  console.log('[GENERATOR OUTPUT FOOTPRINT]', {
+    widthM: width,
+    depthM: depth,
+    areaSqM,
+    singleFloorAreaSqft,
+    totalLandAreaSqft,
+    floorsAbove: params.floorsAbove,
+    basements: params.basements,
+  });
+
   const buildingId = `BLD-${params.parcelId.replace(/[^a-zA-Z0-9]/g, '').slice(-4) || 'GEN-01'}`;
   const floors: Floor[] = [];
-
-  // Exact built-up floor area in sq.ft from the physical confirmed dimensions
-  const singleFloorAreaSqft = Math.round(params.footprintWidth * params.footprintDepth * 10.7639);
-  const totalLandAreaSqft = Math.round(params.footprintWidth * params.footprintDepth * 1.5 * 10.7639);
 
   // 1. Generate Basements (below ground, negative levelIndex)
   for (let b = params.basements; b >= 1; b--) {
@@ -102,8 +122,8 @@ export function generatePropertyFromFloorplan(
     totalFloors: params.floorsAbove,
     basementCount: params.basements,
     status: 'active',
-    widthM: params.footprintWidth,
-    depthM: params.footprintDepth,
+    widthM: width,
+    depthM: depth,
     floors,
   };
 
