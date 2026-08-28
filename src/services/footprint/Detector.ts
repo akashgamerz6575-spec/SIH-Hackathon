@@ -14,8 +14,8 @@ export interface IFootprintDetector {
  * Pipeline:
  * 1. Off-screen canvas pixel extraction & grayscale luminance conversion
  * 2. Morphological structural wall extraction (isolates thick structural walls from thin dimension lines/text)
- * 3. Connected structural core analysis (excludes isolated peripheral north arrows, title blocks, and scale bars)
- * 4. Closed exterior boundary extraction with concavity preservation
+ * 3. Connected-component labeling (isolates the primary continuous building core and discards detached title blocks, scale bars, and compass graphics)
+ * 4. Closed exterior boundary extraction strictly along outer structural walls
  * 5. Orthogonal corner simplification & Douglas-Peucker reduction
  * 6. Factual quality metric computation (GOOD / REVIEW_REQUIRED / FAILED)
  */
@@ -24,8 +24,8 @@ export class CanvasFootprintDetector implements IFootprintDetector {
     const width = imageElement.naturalWidth || imageElement.width || 800;
     const height = imageElement.naturalHeight || imageElement.height || 600;
 
-    // 1. Offscreen sampling
-    const sampleWidth = Math.min(width, 600);
+    // 1. Offscreen sampling (800x650 native resolution for high precision)
+    const sampleWidth = Math.min(width, 800);
     const sampleHeight = Math.min(height, Math.round((sampleWidth / width) * height));
 
     const canvas = document.createElement('canvas');
@@ -56,27 +56,22 @@ export class CanvasFootprintDetector implements IFootprintDetector {
     }
 
     const avgLum = totalLum / (sampleWidth * sampleHeight);
-    // Dark walls threshold against light background paper (or bright walls on dark CAD background)
     const isDarkBackground = avgLum < 128;
     const wallThreshold = isDarkBackground ? Math.max(avgLum * 1.35, 60) : Math.min(avgLum * 0.75, 180);
 
     // 3. Binary wall mask with morphological thickness filtering
-    // Structural architectural walls have local thickness > 2px, whereas dimension lines and text are thin
     const rawMask = new Uint8Array(sampleWidth * sampleHeight);
     for (let i = 0; i < lums.length; i++) {
       const isWall = isDarkBackground ? lums[i] > wallThreshold : lums[i] < wallThreshold;
       rawMask[i] = isWall ? 1 : 0;
     }
 
-    // Morphological filter: Require minimum 2x2 or 3x3 local density to suppress thin annotations/text
+    // Morphological filter: Require minimum local density to suppress thin lines / text
     const filteredWallMask = new Uint8Array(sampleWidth * sampleHeight);
-    let wallPixelCount = 0;
-
     for (let y = 2; y < sampleHeight - 2; y++) {
       for (let x = 2; x < sampleWidth - 2; x++) {
         const idx = y * sampleWidth + x;
         if (rawMask[idx] === 1) {
-          // Count neighbor pixels in 5x5 window
           let neighbors = 0;
           for (let dy = -2; dy <= 2; dy++) {
             for (let dx = -2; dx <= 2; dx++) {
@@ -85,37 +80,83 @@ export class CanvasFootprintDetector implements IFootprintDetector {
               }
             }
           }
-          // Thick wall lines have high local neighbor count (>= 8 out of 25)
           if (neighbors >= 7) {
             filteredWallMask[idx] = 1;
-            wallPixelCount++;
           }
         }
       }
     }
 
-    // 4. Find the main architectural core bounding region (excluding isolated margins)
-    // Ignore outer 8% margin where dimension lines, compass, and title blocks live
-    const marginX = Math.round(sampleWidth * 0.08);
-    const marginY = Math.round(sampleHeight * 0.08);
+    // 4. Connected-component labeling to isolate the PRIMARY BUILDING CORE
+    // Discards detached peripheral elements (title blocks, north arrows, legend boxes)
+    const labels = new Int32Array(sampleWidth * sampleHeight);
+    let currentLabel = 0;
+    const componentSizes: number[] = [0];
+    const componentBounds: { minX: number; maxX: number; minY: number; maxY: number }[] = [
+      { minX: sampleWidth, maxX: 0, minY: sampleHeight, maxY: 0 },
+    ];
 
-    let minCoreX = sampleWidth, maxCoreX = 0, minCoreY = sampleHeight, maxCoreY = 0;
-    let coreWallCount = 0;
-
-    for (let y = marginY; y < sampleHeight - marginY; y++) {
-      for (let x = marginX; x < sampleWidth - marginX; x++) {
+    for (let y = 5; y < sampleHeight - 5; y++) {
+      for (let x = 5; x < sampleWidth - 5; x++) {
         const idx = y * sampleWidth + x;
-        if (filteredWallMask[idx] === 1) {
-          if (x < minCoreX) minCoreX = x;
-          if (x > maxCoreX) maxCoreX = x;
-          if (y < minCoreY) minCoreY = y;
-          if (y > maxCoreY) maxCoreY = y;
-          coreWallCount++;
+        if (filteredWallMask[idx] === 1 && labels[idx] === 0) {
+          currentLabel++;
+          let size = 0;
+          let minX = x, maxX = x, minY = y, maxY = y;
+
+          // BFS Flood Fill
+          const queue: number[] = [idx];
+          labels[idx] = currentLabel;
+
+          while (queue.length > 0) {
+            const curr = queue.pop()!;
+            size++;
+            const cy = Math.floor(curr / sampleWidth);
+            const cx = curr % sampleWidth;
+
+            if (cx < minX) minX = cx;
+            if (cx > maxX) maxX = cx;
+            if (cy < minY) minY = cy;
+            if (cy > maxY) maxY = cy;
+
+            // Check 4-connected neighbors
+            const neighbors = [
+              curr - 1,
+              curr + 1,
+              curr - sampleWidth,
+              curr + sampleWidth,
+            ];
+
+            for (const n of neighbors) {
+              if (
+                n >= 0 &&
+                n < sampleWidth * sampleHeight &&
+                filteredWallMask[n] === 1 &&
+                labels[n] === 0
+              ) {
+                labels[n] = currentLabel;
+                queue.push(n);
+              }
+            }
+          }
+
+          componentSizes[currentLabel] = size;
+          componentBounds[currentLabel] = { minX, maxX, minY, maxY };
         }
       }
     }
 
-    if (coreWallCount < 20 || minCoreX >= maxCoreX || minCoreY >= maxCoreY) {
+    // Find the largest connected structural component (the main building walls)
+    let largestLabel = 0;
+    let largestSize = 0;
+    for (let i = 1; i <= currentLabel; i++) {
+      if (componentSizes[i] > largestSize) {
+        largestSize = componentSizes[i];
+        largestLabel = i;
+      }
+    }
+
+    if (largestLabel === 0 || largestSize < 100) {
       return this.createFallbackFootprint(
         width,
         height,
@@ -124,15 +165,25 @@ export class CanvasFootprintDetector implements IFootprintDetector {
       );
     }
 
-    // 5. Trace the exterior boundary of the main structural core
-    const coreCenterX = (minCoreX + maxCoreX) / 2;
-    const coreCenterY = (minCoreY + maxCoreY) / 2;
+    const { minX, maxX, minY, maxY } = componentBounds[largestLabel];
+    const coreWidth = maxX - minX;
+    const coreHeight = maxY - minY;
+
+    if (coreWidth < 40 || coreHeight < 40) {
+      return this.createFallbackFootprint(
+        width,
+        height,
+        'FAILED',
+        'Detected building structure is too small to form a valid footprint',
+      );
+    }
+
+    // 5. Trace the exterior boundary of the isolated main building core
+    const coreCenterX = (minX + maxX) / 2;
+    const coreCenterY = (minY + maxY) / 2;
     const numRays = 48;
     const rawContour: NormalizedPoint[] = [];
-
-    const coreWidth = maxCoreX - minCoreX;
-    const coreHeight = maxCoreY - minCoreY;
-    const maxScanR = Math.hypot(coreWidth, coreHeight) / 2 + 10;
+    const maxScanR = Math.hypot(coreWidth, coreHeight) / 2 + 5;
 
     for (let i = 0; i < numRays; i++) {
       const angle = (i * 2 * Math.PI) / numRays;
@@ -143,17 +194,14 @@ export class CanvasFootprintDetector implements IFootprintDetector {
       let edgeY = coreCenterY;
       let hit = false;
 
-      // March from center outwards to find the exterior wall edge
       for (let r = 5; r <= maxScanR; r += 2) {
         const px = Math.round(coreCenterX + r * cosA);
         const py = Math.round(coreCenterY + r * sinA);
 
-        if (px < minCoreX || px > maxCoreX || py < minCoreY || py > maxCoreY) {
-          break;
-        }
+        if (px < minX || px > maxX || py < minY || py > maxY) break;
 
         const idx = py * sampleWidth + px;
-        if (filteredWallMask[idx] === 1) {
+        if (labels[idx] === largestLabel) {
           edgeX = px;
           edgeY = py;
           hit = true;
@@ -168,21 +216,21 @@ export class CanvasFootprintDetector implements IFootprintDetector {
       }
     }
 
-    // If contour is clean, simplify to crisp architectural corners
-    const simplified = this.douglasPeucker(rawContour, 0.025);
+    // Simplify to clean rectilinear corners
+    const simplified = this.douglasPeucker(rawContour, 0.02);
     const orthogonalized = this.orthogonalizeCorners(simplified);
 
-    const normWidth = (maxCoreX - minCoreX) / sampleWidth;
-    const normHeight = (maxCoreY - minCoreY) / sampleHeight;
+    const normWidth = coreWidth / sampleWidth;
+    const normHeight = coreHeight / sampleHeight;
     const aspectRatio = normWidth / (normHeight || 1);
 
     // Factual Quality Assessment
     let quality: DetectionQuality = 'GOOD';
-    let qualityReason = 'Closed exterior architectural wall boundary verified';
+    let qualityReason = 'Closed exterior architectural wall boundary verified (isolated from outer annotations)';
 
     if (orthogonalized.length < 4 || orthogonalized.length > 12) {
       quality = 'REVIEW_REQUIRED';
-      qualityReason = `Ambiguous boundary detected (${orthogonalized.length} vertices) — confirm exterior wall bounds`;
+      qualityReason = `Complex exterior perimeter (${orthogonalized.length} vertices) — review recommended`;
     }
 
     return {
