@@ -12,6 +12,7 @@ export interface ICesiumAdapter {
   setMapMode(mode: '3d' | '2d'): void;
   resetCamera(): void;
   flyToFloor(floorId: string): void;
+  setDisasterMode(enabled: boolean, disasterData?: import('@/types/disaster').DisasterDataset): void;
   dispose(): void;
 }
 

@@ -1,6 +1,7 @@
 import * as Cesium from 'cesium';
 import type { ICesiumAdapter } from './types';
 import type { Parcel, SelectionState } from '@/types/property';
+import type { DisasterDataset } from '@/types/disaster';
 import { createParcelEntity, setParcelHighlight } from './ParcelLayer';
 import {
   createBuildingEntity,
@@ -10,10 +11,30 @@ import {
 import { createFloorEntities, setFloorHighlight, floorCenterHeight } from './FloorLayer';
 import { CameraController } from './CameraController';
 import { InteractionHandler } from './interaction/InteractionHandler';
+import {
+  createDisasterZoneEntities,
+  removeDisasterZoneEntities,
+  type DisasterZoneEntities,
+} from './disaster/DisasterZoneLayer';
+import {
+  createRescueTeamEntities,
+  removeRescueTeamEntities,
+  type RescueTeamEntities,
+} from './disaster/RescueTeamsLayer';
+import {
+  createEmergencyPointEntities,
+  removeEmergencyPointEntities,
+  type EmergencyPointEntities,
+} from './disaster/EmergencyPointsLayer';
+import {
+  createEvacuationRouteEntity,
+  removeEvacuationRouteEntities,
+  type EvacuationRouteEntities,
+} from './disaster/EvacuationRouteLayer';
 
 /**
  * CesiumSceneAdapter is the single bridge between React and CesiumJS.
- * Handles dynamic property replacement, floor strata rendering, and camera focus.
+ * Handles dynamic property replacement, floor strata rendering, disaster zones, and camera focus.
  */
 export class CesiumSceneAdapter implements ICesiumAdapter {
   private viewer: Cesium.Viewer | null = null;
@@ -23,7 +44,18 @@ export class CesiumSceneAdapter implements ICesiumAdapter {
   private parcel: Parcel | null = null;
   private parcelEntity: Cesium.Entity | undefined;
   private buildingEntities = new Map<string, Cesium.Entity>();
-  private floorRecords = new Map<string, { entity: Cesium.Entity; floor: import('@/types/property').Floor; labelEntity?: Cesium.Entity }>();
+  private floorRecords = new Map<
+    string,
+    { entity: Cesium.Entity; floor: import('@/types/property').Floor; labelEntity?: Cesium.Entity }
+  >();
+
+  // Disaster 3D Entity state
+  private isDisasterActive = false;
+  private disasterData: DisasterDataset | null = null;
+  private disasterZones: DisasterZoneEntities | null = null;
+  private rescueTeamsEntities: RescueTeamEntities | null = null;
+  private emergencyPointsEntities: EmergencyPointEntities | null = null;
+  private evacuationRouteEntities: EvacuationRouteEntities | null = null;
 
   private currentSelection: SelectionState = {
     kind: null,
@@ -35,7 +67,6 @@ export class CesiumSceneAdapter implements ICesiumAdapter {
   constructor(private onSelection: (selection: SelectionState) => void) {}
 
   async init(container: HTMLElement): Promise<void> {
-    // CESIUM_BASE_URL is defined in vite.config.ts and points to /cesium
     (Cesium as unknown as { Ion: { defaultAccessToken: string } }).Ion.defaultAccessToken =
       (import.meta.env.VITE_CESIUM_TOKEN as string) || '';
 
@@ -60,22 +91,17 @@ export class CesiumSceneAdapter implements ICesiumAdapter {
       shouldAnimate: true,
     });
 
-    // ── Dark atmosphere for the command-center aesthetic ──
     const scene = this.viewer.scene;
     scene.globe.baseColor = Cesium.Color.fromCssColorString('#060a10');
     scene.backgroundColor = Cesium.Color.fromCssColorString('#060a10');
 
-    // Disable sky elements for a clean dark look
     if (scene.skyBox) scene.skyBox.show = false;
     if (scene.sun) scene.sun.show = false;
     if (scene.moon) scene.moon.show = false;
     if (scene.skyAtmosphere) scene.skyAtmosphere.show = false;
     scene.fog.enabled = false;
 
-    // Enable anti-aliasing for cleaner edges
     scene.postProcessStages.fxaa.enabled = true;
-
-    // Globe rendering tweaks for dark aesthetic and subterranean visibility
     scene.globe.showGroundAtmosphere = false;
     scene.globe.enableLighting = false;
     scene.globe.depthTestAgainstTerrain = false;
@@ -83,7 +109,6 @@ export class CesiumSceneAdapter implements ICesiumAdapter {
     this.camera = new CameraController(this.viewer);
     this.interaction = new InteractionHandler(this.viewer, this.onSelection);
 
-    // Ensure viewer fills container
     this.viewer.resize();
     window.addEventListener('resize', () => {
       this.viewer?.resize();
@@ -135,6 +160,11 @@ export class CesiumSceneAdapter implements ICesiumAdapter {
       }
     }
 
+    // Re-apply disaster overlays if active
+    if (this.isDisasterActive && this.disasterData) {
+      this.setDisasterMode(true, this.disasterData);
+    }
+
     // Frame the scene
     const firstBuilding = parcel.buildings[0];
     const aboveFloors = firstBuilding
@@ -145,62 +175,199 @@ export class CesiumSceneAdapter implements ICesiumAdapter {
     this.camera?.frameParcel(parcel.longitude, parcel.latitude, maxHeight);
   }
 
+  setDisasterMode(enabled: boolean, disasterData?: DisasterDataset): void {
+    if (!this.viewer || !this.parcel) return;
+    this.isDisasterActive = enabled;
+    this.disasterData = disasterData || null;
+
+    // Clean up previous disaster layers
+    if (this.disasterZones) {
+      removeDisasterZoneEntities(this.viewer, this.disasterZones);
+      this.disasterZones = null;
+    }
+    if (this.rescueTeamsEntities) {
+      removeRescueTeamEntities(this.viewer, this.rescueTeamsEntities);
+      this.rescueTeamsEntities = null;
+    }
+    if (this.emergencyPointsEntities) {
+      removeEmergencyPointEntities(this.viewer, this.emergencyPointsEntities);
+      this.emergencyPointsEntities = null;
+    }
+    if (this.evacuationRouteEntities) {
+      removeEvacuationRouteEntities(this.viewer, this.evacuationRouteEntities);
+      this.evacuationRouteEntities = null;
+    }
+
+    if (enabled && disasterData) {
+      // 1. Add Concentric Disaster Risk Zones
+      this.disasterZones = createDisasterZoneEntities(
+        this.viewer,
+        this.parcel.longitude,
+        this.parcel.latitude,
+      );
+
+      // 2. Add Rescue Teams
+      this.rescueTeamsEntities = createRescueTeamEntities(
+        this.viewer,
+        disasterData.teams,
+      );
+
+      // 3. Add Emergency Points
+      this.emergencyPointsEntities = createEmergencyPointEntities(
+        this.viewer,
+        disasterData.emergencyPoints,
+      );
+
+      // 4. Add Evacuation Corridor
+      const activeRoute =
+        disasterData.routes.find((r) => r.id === disasterData.activeRouteId) ||
+        disasterData.routes[0];
+      if (activeRoute) {
+        this.evacuationRouteEntities = createEvacuationRouteEntity(
+          this.viewer,
+          activeRoute,
+        );
+      }
+
+      // 5. Apply Emergency Floor Coloring
+      this.applyEmergencyFloorColors(disasterData);
+    } else {
+      // Restore standard floor colors
+      for (const record of this.floorRecords.values()) {
+        setFloorHighlight(record, record.floor.id === this.currentSelection.floorId);
+      }
+    }
+  }
+
+  private applyEmergencyFloorColors(disasterData: DisasterDataset) {
+    for (const [floorId, record] of this.floorRecords) {
+      const emergencyFloor = disasterData.floors.get(floorId);
+      if (!emergencyFloor) continue;
+
+      let fill = '#0284c7';
+      let edge = '#38bdf8';
+
+      switch (emergencyFloor.emergencyStatus) {
+        case 'CRITICAL':
+          fill = '#dc2626';
+          edge = '#ef4444';
+          break;
+        case 'AT_RISK':
+          fill = '#ea580c';
+          edge = '#f97316';
+          break;
+        case 'AFFECTED':
+          fill = '#d97706';
+          edge = '#fbbf24';
+          break;
+        case 'SAFE':
+        default:
+          fill = '#0284c7';
+          edge = '#38bdf8';
+          break;
+      }
+
+      if (record.floor.kind === 'basement') {
+        fill = '#0f2b38';
+        edge = '#06b6d4';
+      }
+
+      const isSelected = floorId === this.currentSelection.floorId;
+      if (isSelected) {
+        edge = '#ffffff';
+      }
+
+      if (record.entity.box) {
+        (record.entity.box.material as Cesium.ColorMaterialProperty).color =
+          new Cesium.ConstantProperty(
+            Cesium.Color.fromCssColorString(fill).withAlpha(isSelected ? 0.85 : 0.55),
+          );
+        (record.entity.box.outlineColor as Cesium.ConstantProperty) =
+          new Cesium.ConstantProperty(
+            Cesium.Color.fromCssColorString(edge).withAlpha(isSelected ? 1.0 : 0.8),
+          );
+      }
+    }
+  }
+
   select(selection: SelectionState): void {
     if (!this.viewer) return;
     this.currentSelection = selection;
 
-    // Reset all highlights
+    // Reset standard highlights
     setParcelHighlight(this.parcelEntity, false);
     for (const entity of this.buildingEntities.values()) {
       setBuildingHighlight(entity, false);
     }
-    for (const record of this.floorRecords.values()) {
-      setFloorHighlight(record, false);
+
+    if (this.isDisasterActive && this.disasterData) {
+      this.applyEmergencyFloorColors(this.disasterData);
+    } else {
+      for (const record of this.floorRecords.values()) {
+        setFloorHighlight(record, false);
+      }
     }
 
-    // Apply new highlight
+    if (!selection.kind) return;
+
     if (selection.kind === 'parcel') {
       setParcelHighlight(this.parcelEntity, true);
     } else if (selection.kind === 'building' && selection.buildingId) {
-      setBuildingHighlight(this.buildingEntities.get(selection.buildingId), true);
+      const bEntity = this.buildingEntities.get(selection.buildingId);
+      setBuildingHighlight(bEntity, true);
     } else if (selection.kind === 'floor' && selection.floorId) {
-      setFloorHighlight(this.floorRecords.get(selection.floorId), true);
+      const record = this.floorRecords.get(selection.floorId);
+      if (this.isDisasterActive && this.disasterData) {
+        this.applyEmergencyFloorColors(this.disasterData);
+      } else {
+        setFloorHighlight(record, true);
+      }
     }
   }
 
   setMapMode(mode: '3d' | '2d'): void {
-    if (!this.parcel || !this.camera) return;
+    if (!this.camera || !this.parcel) return;
     this.camera.setMapMode(mode, this.parcel.longitude, this.parcel.latitude);
   }
 
   resetCamera(): void {
-    if (!this.parcel || !this.camera) return;
+    if (!this.camera || !this.parcel) return;
     const firstBuilding = this.parcel.buildings[0];
     const aboveFloors = firstBuilding
       ? firstBuilding.floors.filter((f) => f.kind !== 'basement')
       : [];
     const topIndex = Math.max(...aboveFloors.map((f) => f.levelIndex), 0);
     const maxHeight = (topIndex + 1) * BUILDING_CONSTANTS.FLOOR_HEIGHT_M;
-    this.camera.resetCamera(this.parcel.longitude, this.parcel.latitude, maxHeight);
+    this.camera.frameParcel(this.parcel.longitude, this.parcel.latitude, maxHeight);
   }
 
   flyToFloor(floorId: string): void {
-    if (!this.parcel || !this.camera) return;
+    if (!this.camera || !this.parcel) return;
     const record = this.floorRecords.get(floorId);
     if (!record) return;
-    const z = floorCenterHeight(record.floor);
-    this.camera.flyToFloor(this.parcel.longitude, this.parcel.latitude, z);
+
+    const centerZ = floorCenterHeight(record.floor);
+    this.camera.flyToFloor(this.parcel.longitude, this.parcel.latitude, centerZ);
   }
 
   dispose(): void {
-    this.interaction?.dispose();
-    if (this.viewer && !this.viewer.isDestroyed()) {
-      this.viewer.destroy();
+    if (this.disasterZones && this.viewer) {
+      removeDisasterZoneEntities(this.viewer, this.disasterZones);
     }
-    this.viewer = null;
-    this.camera = null;
+    if (this.rescueTeamsEntities && this.viewer) {
+      removeRescueTeamEntities(this.viewer, this.rescueTeamsEntities);
+    }
+    if (this.emergencyPointsEntities && this.viewer) {
+      removeEmergencyPointEntities(this.viewer, this.emergencyPointsEntities);
+    }
+    if (this.evacuationRouteEntities && this.viewer) {
+      removeEvacuationRouteEntities(this.viewer, this.evacuationRouteEntities);
+    }
+
+    this.interaction?.dispose();
     this.interaction = null;
-    this.buildingEntities.clear();
-    this.floorRecords.clear();
+    this.camera = null;
+    this.viewer?.destroy();
+    this.viewer = null;
   }
 }

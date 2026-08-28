@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { PanelLeftOpen } from 'lucide-react';
 import { TopBar } from '@/components/command-center/TopBar';
 import { PropertyExplorer } from '@/components/property/PropertyExplorer';
@@ -7,16 +7,31 @@ import { FloorExplorer } from '@/components/floor/FloorExplorer';
 import { CesiumMount } from '@/components/ui/CesiumMount';
 import { MapControls } from '@/components/ui/MapControls';
 import { CreatePropertyModal } from '@/components/floorplan/CreatePropertyModal';
+import { DisasterView } from '@/components/disaster/DisasterView';
 import { useCommandCenterState } from '@/hooks/useCommandCenterState';
 import { useCesiumAdapter } from '@/hooks/useCesiumAdapter';
+import { createDisasterDataset } from '@/services/disaster/DisasterService';
 import { resolveSelectedBuilding } from '@/utils/selection';
 import type { SearchEntry, SelectionState } from '@/types/property';
+import type { DisasterDataset, IncidentEvent } from '@/types/disaster';
 
 export function CommandCenter() {
   const state = useCommandCenterState();
   const containerRef = useRef<HTMLDivElement>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+
+  // Disaster dataset tied to active parcel
+  const initialDisasterData = useMemo(() => {
+    return createDisasterDataset(state.parcel);
+  }, [state.parcel]);
+
+  const [disasterDataset, setDisasterDataset] = useState<DisasterDataset>(initialDisasterData);
+
+  // Synchronize disaster dataset when active parcel changes
+  useEffect(() => {
+    setDisasterDataset(createDisasterDataset(state.parcel));
+  }, [state.parcel]);
 
   // Stable selection callback so the adapter effect doesn't re-run
   const selectionCallbackRef = useRef((sel: SelectionState) => {
@@ -50,6 +65,15 @@ export function CommandCenter() {
     adapterRef.current?.setMapMode(state.mapMode);
   }, [state.mapMode, adapterRef]);
 
+  // Sync Disaster Mode into Cesium 3D View
+  useEffect(() => {
+    if (state.viewMode === 'disaster') {
+      adapterRef.current?.setDisasterMode(true, disasterDataset);
+    } else {
+      adapterRef.current?.setDisasterMode(false);
+    }
+  }, [state.viewMode, disasterDataset, adapterRef]);
+
   const handleSearchSelect = useCallback(
     (entry: SearchEntry) => {
       if (entry.kind === 'parcel') {
@@ -80,6 +104,20 @@ export function CommandCenter() {
     adapterRef.current?.resetCamera();
   }, [state, adapterRef]);
 
+  const handleSelectRoute = useCallback((routeId: string) => {
+    setDisasterDataset((prev) => ({
+      ...prev,
+      activeRouteId: routeId,
+    }));
+  }, []);
+
+  const handleAddIncidentEvent = useCallback((newEvent: IncidentEvent) => {
+    setDisasterDataset((prev) => ({
+      ...prev,
+      events: [newEvent, ...prev.events],
+    }));
+  }, []);
+
   const selectedBuilding = resolveSelectedBuilding(state.parcel, state.selection);
 
   return (
@@ -102,42 +140,58 @@ export function CommandCenter() {
       />
 
       <div className="flex-1 flex overflow-hidden relative">
-        {/* Left panel — Property Explorer + Vertical Floor Explorer */}
-        {!sidebarCollapsed ? (
-          <aside className="w-[280px] shrink-0 flex flex-col bg-base-900/70 backdrop-blur-md border-r border-white/[0.04] transition-all duration-300 z-10">
-            <div className="flex-1 overflow-hidden">
-              <PropertyExplorer
-                parcel={state.parcel}
-                selection={state.selection}
-                onSelectParcel={state.selectParcel}
-                onSelectBuilding={state.selectBuilding}
-                onSelectFloor={state.selectFloor}
-                onToggleCollapse={() => setSidebarCollapsed(true)}
-              />
-            </div>
-            {selectedBuilding && (
-              <div className="shrink-0 border-t border-white/[0.04]">
-                <FloorExplorer
-                  building={selectedBuilding}
-                  selection={state.selection}
-                  onSelectFloor={state.selectFloor}
-                />
-              </div>
-            )}
-          </aside>
+        {state.viewMode === 'disaster' ? (
+          /* DISASTER MODE PANELS */
+          <DisasterView
+            parcel={state.parcel}
+            selection={state.selection}
+            disasterData={disasterDataset}
+            onSelectFloor={(buildingId, floorId) => state.selectFloor(buildingId, floorId)}
+            onSelectRoute={handleSelectRoute}
+            onExitDisasterView={() => state.setViewMode('command')}
+            onAddIncidentEvent={handleAddIncidentEvent}
+          />
         ) : (
-          /* Floating Expand Button when Sidebar is Collapsed */
-          <button
-            onClick={() => setSidebarCollapsed(false)}
-            title="Expand Property Explorer"
-            className="absolute top-3 left-3 z-30 h-8 px-2.5 rounded-lg glass-panel flex items-center gap-1.5 text-xs text-slate-300 hover:text-accent-300 hover:border-accent-500/30 transition-all shadow-panel-lg"
-          >
-            <PanelLeftOpen className="h-4 w-4 text-accent-400" />
-            <span className="text-[11px] font-medium">Explorer</span>
-          </button>
+          /* NORMAL CADASTRE MODE PANELS */
+          <>
+            {/* Left panel — Property Explorer + Vertical Floor Explorer */}
+            {!sidebarCollapsed ? (
+              <aside className="w-[280px] shrink-0 flex flex-col bg-base-900/70 backdrop-blur-md border-r border-white/[0.04] transition-all duration-300 z-10">
+                <div className="flex-1 overflow-hidden">
+                  <PropertyExplorer
+                    parcel={state.parcel}
+                    selection={state.selection}
+                    onSelectParcel={state.selectParcel}
+                    onSelectBuilding={state.selectBuilding}
+                    onSelectFloor={state.selectFloor}
+                    onToggleCollapse={() => setSidebarCollapsed(true)}
+                  />
+                </div>
+                {selectedBuilding && (
+                  <div className="shrink-0 border-t border-white/[0.04]">
+                    <FloorExplorer
+                      building={selectedBuilding}
+                      selection={state.selection}
+                      onSelectFloor={state.selectFloor}
+                    />
+                  </div>
+                )}
+              </aside>
+            ) : (
+              /* Floating Expand Button when Sidebar is Collapsed */
+              <button
+                onClick={() => setSidebarCollapsed(false)}
+                title="Expand Property Explorer"
+                className="absolute top-3 left-3 z-30 h-8 px-2.5 rounded-lg glass-panel flex items-center gap-1.5 text-xs text-slate-300 hover:text-accent-300 hover:border-accent-500/30 transition-all shadow-panel-lg"
+              >
+                <PanelLeftOpen className="h-4 w-4 text-accent-400" />
+                <span className="text-[11px] font-medium">Explorer</span>
+              </button>
+            )}
+          </>
         )}
 
-        {/* Center — Cesium 3D Viewer (HERO) */}
+        {/* Center — Cesium 3D Viewer (HERO in both modes) */}
         <main className="flex-1 relative overflow-hidden bg-base-950">
           <CesiumMount
             ready={state.cesiumReady}
@@ -159,19 +213,23 @@ export function CommandCenter() {
           />
         </main>
 
-        {/* Right panel divider */}
-        <div className="panel-divider" />
+        {state.viewMode === 'command' && (
+          <>
+            {/* Right panel divider */}
+            <div className="panel-divider" />
 
-        {/* Right panel — Property Intelligence */}
-        <aside className="w-[320px] shrink-0 flex flex-col bg-base-900/70 backdrop-blur-md z-10">
-          <PropertyIntelligence
-            parcel={state.parcel}
-            selection={state.selection}
-            onSelectParcel={state.selectParcel}
-            onSelectBuilding={state.selectBuilding}
-            onSelectFloor={state.selectFloor}
-          />
-        </aside>
+            {/* Right panel — Property Intelligence */}
+            <aside className="w-[320px] shrink-0 flex flex-col bg-base-900/70 backdrop-blur-md z-10">
+              <PropertyIntelligence
+                parcel={state.parcel}
+                selection={state.selection}
+                onSelectParcel={state.selectParcel}
+                onSelectBuilding={state.selectBuilding}
+                onSelectFloor={state.selectFloor}
+              />
+            </aside>
+          </>
+        )}
       </div>
 
       {/* CREATE 3D PROPERTY MODAL */}
