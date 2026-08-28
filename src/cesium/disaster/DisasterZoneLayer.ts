@@ -10,7 +10,7 @@ export interface DisasterZoneEntities {
 
 /**
  * Creates concentric 3D multi-level emergency risk and impact zones in Cesium
- * centered directly on the parcel coordinates.
+ * with clean, high-contrast, non-overlapping perimeter badges.
  */
 export function createDisasterZoneEntities(
   viewer: Cesium.Viewer,
@@ -28,7 +28,7 @@ export function createDisasterZoneEntities(
       semiMinorAxis: 35,
       semiMajorAxis: 35,
       height: 0.3,
-      material: Cesium.Color.fromCssColorString('#dc2626').withAlpha(0.28),
+      material: Cesium.Color.fromCssColorString('#dc2626').withAlpha(0.25),
       outline: true,
       outlineColor: Cesium.Color.fromCssColorString('#ef4444').withAlpha(0.9),
       outlineWidth: 3,
@@ -44,9 +44,9 @@ export function createDisasterZoneEntities(
       semiMinorAxis: 70,
       semiMajorAxis: 70,
       height: 0.2,
-      material: Cesium.Color.fromCssColorString('#ea580c').withAlpha(0.18),
+      material: Cesium.Color.fromCssColorString('#ea580c').withAlpha(0.15),
       outline: true,
-      outlineColor: Cesium.Color.fromCssColorString('#f97316').withAlpha(0.8),
+      outlineColor: Cesium.Color.fromCssColorString('#f97316').withAlpha(0.85),
       outlineWidth: 2,
     },
   });
@@ -60,9 +60,9 @@ export function createDisasterZoneEntities(
       semiMinorAxis: 120,
       semiMajorAxis: 120,
       height: 0.15,
-      material: Cesium.Color.fromCssColorString('#d97706').withAlpha(0.1),
+      material: Cesium.Color.fromCssColorString('#d97706').withAlpha(0.08),
       outline: true,
-      outlineColor: Cesium.Color.fromCssColorString('#fbbf24').withAlpha(0.7),
+      outlineColor: Cesium.Color.fromCssColorString('#fbbf24').withAlpha(0.75),
       outlineWidth: 2,
     },
   });
@@ -78,31 +78,61 @@ export function createDisasterZoneEntities(
       height: 0.1,
       material: Cesium.Color.fromCssColorString('#16a34a').withAlpha(0.04),
       outline: true,
-      outlineColor: Cesium.Color.fromCssColorString('#22c55e').withAlpha(0.6),
+      outlineColor: Cesium.Color.fromCssColorString('#22c55e').withAlpha(0.7),
       outlineWidth: 2,
     },
   });
 
-  // Floating 3D Zone Labels
+  // High-contrast, spatially distributed perimeter badges placed at distinct cardinal points
+  // to avoid overlapping with building geometry or rescue team markers
   const labels: Cesium.Entity[] = [];
+  const mToDegLon = 1 / (111320 * Math.cos((lat * Math.PI) / 180));
   const mToDegLat = 1 / 110574;
 
-  const zoneLabelData = [
-    { text: 'CRITICAL ZONE (35m)', offsetM: 35, color: '#ef4444' },
-    { text: 'HIGH RISK (70m)', offsetM: 70, color: '#f97316' },
-    { text: 'SAFE PERIMETER (200m)', offsetM: 200, color: '#22c55e' },
+  const zoneBadges = [
+    {
+      text: '⚠️ CRITICAL IMPACT ZONE (35m)',
+      offsetLon: -25,
+      offsetLat: 28,
+      color: '#fca5a5',
+      bgColor: '#450a0a',
+      borderColor: '#ef4444',
+    },
+    {
+      text: '⚡ HIGH RISK HAZARD BUFFER (70m)',
+      offsetLon: 60,
+      offsetLat: -35,
+      color: '#fdba74',
+      bgColor: '#431407',
+      borderColor: '#f97316',
+    },
+    {
+      text: '🛡️ SAFE EVACUATION PERIMETER (200m)',
+      offsetLon: -140,
+      offsetLat: -130,
+      color: '#86efac',
+      bgColor: '#052e16',
+      borderColor: '#22c55e',
+    },
   ];
 
-  for (const item of zoneLabelData) {
+  for (const item of zoneBadges) {
     const labelEntity = viewer.entities.add({
-      position: Cesium.Cartesian3.fromDegrees(lon, lat + item.offsetM * mToDegLat, 5),
+      position: Cesium.Cartesian3.fromDegrees(
+        lon + item.offsetLon * mToDegLon,
+        lat + item.offsetLat * mToDegLat,
+        8,
+      ),
       label: {
         text: item.text,
-        font: 'bold 10px monospace',
+        font: 'bold 11px Inter, system-ui, sans-serif',
         fillColor: Cesium.Color.fromCssColorString(item.color),
         outlineColor: Cesium.Color.fromCssColorString('#020617'),
-        outlineWidth: 3,
+        outlineWidth: 2,
         style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+        showBackground: true,
+        backgroundColor: Cesium.Color.fromCssColorString(item.bgColor).withAlpha(0.92),
+        backgroundPadding: new Cesium.Cartesian2(10, 5),
         verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
         horizontalOrigin: Cesium.HorizontalOrigin.CENTER,
         disableDepthTestDistance: Number.POSITIVE_INFINITY,

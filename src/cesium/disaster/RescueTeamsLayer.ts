@@ -5,15 +5,16 @@ export interface RescueTeamEntities {
   teamEntities: Map<string, Cesium.Entity>;
 }
 
-const TEAM_COLORS: Record<string, string> = {
-  NDRF_SPECIAL: '#f97316', // bright orange
-  FIRE_RESCUE: '#ef4444',  // red
-  MEDICAL: '#06b6d4',      // cyan/medical blue
-  SEARCH_RESCUE: '#eab308',// yellow
+const TEAM_META: Record<string, { icon: string; color: string; bgColor: string }> = {
+  NDRF_SPECIAL: { icon: '🛡️', color: '#fed7aa', bgColor: '#431407' }, // orange
+  FIRE_RESCUE: { icon: '🚒', color: '#fca5a5', bgColor: '#450a0a' },  // red
+  MEDICAL: { icon: '🚑', color: '#a5f3fc', bgColor: '#083344' },      // cyan
+  SEARCH_RESCUE: { icon: '🔍', color: '#fef08a', bgColor: '#422006' },// yellow
 };
 
 /**
- * Renders 3D interactive Rescue Teams stationed in the vicinity.
+ * Renders 3D interactive Rescue Teams stationed in the vicinity with
+ * clear typography, distinct backgrounds, and legible callsigns.
  */
 export function createRescueTeamEntities(
   viewer: Cesium.Viewer,
@@ -22,7 +23,7 @@ export function createRescueTeamEntities(
   const teamEntities = new Map<string, Cesium.Entity>();
 
   for (const team of teams) {
-    const colorHex = TEAM_COLORS[team.type] || '#f97316';
+    const meta = TEAM_META[team.type] || TEAM_META.NDRF_SPECIAL;
     const pos = Cesium.Cartesian3.fromDegrees(team.longitude, team.latitude, 6);
 
     const entity = viewer.entities.add({
@@ -31,23 +32,26 @@ export function createRescueTeamEntities(
       position: pos,
       cylinder: {
         length: 12,
-        topRadius: 2.5,
-        bottomRadius: 0.5,
-        material: Cesium.Color.fromCssColorString(colorHex).withAlpha(0.85),
+        topRadius: 2.2,
+        bottomRadius: 0.4,
+        material: Cesium.Color.fromCssColorString(meta.color).withAlpha(0.85),
         outline: true,
-        outlineColor: Cesium.Color.WHITE.withAlpha(0.9),
+        outlineColor: Cesium.Color.WHITE.withAlpha(0.95),
         outlineWidth: 2,
       },
       label: {
-        text: `[${team.callSign}] ${team.name}\nStatus: ${team.status} • Personnel: ${team.personnelCount}`,
-        font: 'bold 10px monospace',
-        fillColor: Cesium.Color.fromCssColorString('#f8fafc'),
+        text: `${meta.icon} [${team.callSign}] ${team.name.toUpperCase()} • ${team.status}`,
+        font: 'bold 11px Inter, system-ui, sans-serif',
+        fillColor: Cesium.Color.fromCssColorString(meta.color),
         outlineColor: Cesium.Color.fromCssColorString('#020617'),
-        outlineWidth: 3,
+        outlineWidth: 2,
         style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+        showBackground: true,
+        backgroundColor: Cesium.Color.fromCssColorString(meta.bgColor).withAlpha(0.94),
+        backgroundPadding: new Cesium.Cartesian2(9, 5),
         verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
         horizontalOrigin: Cesium.HorizontalOrigin.CENTER,
-        pixelOffset: new Cesium.Cartesian2(0, -18),
+        pixelOffset: new Cesium.Cartesian2(0, -20),
         disableDepthTestDistance: Number.POSITIVE_INFINITY,
       },
     });

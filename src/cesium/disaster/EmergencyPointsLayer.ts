@@ -5,17 +5,21 @@ export interface EmergencyPointEntities {
   pointEntities: Map<string, Cesium.Entity>;
 }
 
-const POINT_ICONS: Record<string, { symbol: string; color: string }> = {
-  HOSPITAL: { symbol: '🏥', color: '#06b6d4' },
-  FIRE_STATION: { symbol: '🚒', color: '#ef4444' },
-  ASSEMBLY_POINT: { symbol: '📍', color: '#22c55e' },
-  HAZARD_POINT: { symbol: '⚠️', color: '#f59e0b' },
-  BLOCKED_ROAD: { symbol: '🚧', color: '#dc2626' },
-  SAFE_SHELTER: { symbol: '🛟', color: '#10b981' },
+const POINT_ICONS: Record<
+  string,
+  { symbol: string; color: string; bgColor: string }
+> = {
+  HOSPITAL: { symbol: '🏥', color: '#a5f3fc', bgColor: '#083344' },
+  FIRE_STATION: { symbol: '🚒', color: '#fca5a5', bgColor: '#450a0a' },
+  ASSEMBLY_POINT: { symbol: '📍', color: '#86efac', bgColor: '#052e16' },
+  HAZARD_POINT: { symbol: '⚠️', color: '#fde047', bgColor: '#422006' },
+  BLOCKED_ROAD: { symbol: '🚧', color: '#fca5a5', bgColor: '#450a0a' },
+  SAFE_SHELTER: { symbol: '🛟', color: '#6ee7b7', bgColor: '#064e3b' },
 };
 
 /**
- * Creates 3D emergency infrastructure & hazard points in Cesium.
+ * Creates 3D emergency infrastructure & hazard points in Cesium
+ * with clear high-contrast typography and icon badges.
  */
 export function createEmergencyPointEntities(
   viewer: Cesium.Viewer,
@@ -24,7 +28,11 @@ export function createEmergencyPointEntities(
   const pointEntities = new Map<string, Cesium.Entity>();
 
   for (const pt of points) {
-    const meta = POINT_ICONS[pt.kind] || { symbol: '📍', color: '#38bdf8' };
+    const meta = POINT_ICONS[pt.kind] || {
+      symbol: '📍',
+      color: '#38bdf8',
+      bgColor: '#0f172a',
+    };
     const pos = Cesium.Cartesian3.fromDegrees(pt.longitude, pt.latitude, 5);
 
     const entity = viewer.entities.add({
@@ -33,21 +41,24 @@ export function createEmergencyPointEntities(
       position: pos,
       ellipsoid: {
         radii: new Cesium.Cartesian3(4, 4, 4),
-        material: Cesium.Color.fromCssColorString(meta.color).withAlpha(0.8),
+        material: Cesium.Color.fromCssColorString(meta.color).withAlpha(0.85),
         outline: true,
         outlineColor: Cesium.Color.WHITE,
         outlineWidth: 2,
       },
       label: {
-        text: `${meta.symbol} ${pt.name} (${pt.distanceMeters}m)`,
-        font: 'bold 10px sans-serif',
-        fillColor: Cesium.Color.fromCssColorString('#f1f5f9'),
+        text: `${meta.symbol} ${pt.name.toUpperCase()} (${pt.distanceMeters}m)`,
+        font: 'bold 11px Inter, system-ui, sans-serif',
+        fillColor: Cesium.Color.fromCssColorString(meta.color),
         outlineColor: Cesium.Color.fromCssColorString('#020617'),
-        outlineWidth: 3,
+        outlineWidth: 2,
         style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+        showBackground: true,
+        backgroundColor: Cesium.Color.fromCssColorString(meta.bgColor).withAlpha(0.92),
+        backgroundPadding: new Cesium.Cartesian2(9, 5),
         verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
         horizontalOrigin: Cesium.HorizontalOrigin.CENTER,
-        pixelOffset: new Cesium.Cartesian2(0, -12),
+        pixelOffset: new Cesium.Cartesian2(0, -18),
         disableDepthTestDistance: Number.POSITIVE_INFINITY,
       },
     });

@@ -118,6 +118,7 @@ export class CesiumSceneAdapter implements ICesiumAdapter {
   setParcel(parcel: Parcel): void {
     if (!this.viewer) return;
     this.parcel = parcel;
+    this.interaction?.setParcel(parcel);
 
     // Clean up previous entities
     if (this.parcelEntity) {
@@ -229,12 +230,33 @@ export class CesiumSceneAdapter implements ICesiumAdapter {
         );
       }
 
-      // 5. Apply Emergency Floor Coloring
+      // 5. Apply Emergency Floor Coloring and Badges
       this.applyEmergencyFloorColors(disasterData);
     } else {
-      // Restore standard floor colors
+      // Restore standard floor colors and standard labels
       for (const record of this.floorRecords.values()) {
         setFloorHighlight(record, record.floor.id === this.currentSelection.floorId);
+        if (record.labelEntity?.label) {
+          const standardLabel =
+            record.floor.kind === 'basement'
+              ? `B0${Math.abs(record.floor.levelIndex)}`
+              : record.floor.kind === 'ground'
+              ? 'Ground'
+              : `F0${record.floor.levelIndex}`;
+
+          (record.labelEntity.label.text as Cesium.ConstantProperty) =
+            new Cesium.ConstantProperty(standardLabel);
+          (record.labelEntity.label.fillColor as Cesium.ConstantProperty) =
+            new Cesium.ConstantProperty(
+              record.floor.status === 'violation'
+                ? Cesium.Color.fromCssColorString('#fca5a5')
+                : Cesium.Color.fromCssColorString('#e2e8f0'),
+            );
+          (record.labelEntity.label.backgroundColor as Cesium.ConstantProperty) =
+            new Cesium.ConstantProperty(
+              Cesium.Color.fromCssColorString('#0f172a').withAlpha(0.85),
+            );
+        }
       }
     }
   }
@@ -246,35 +268,52 @@ export class CesiumSceneAdapter implements ICesiumAdapter {
 
       let fill = '#0284c7';
       let edge = '#38bdf8';
+      let labelFill = '#e2e8f0';
+      let labelBg = '#0f172a';
+      let statusTag: string = emergencyFloor.emergencyStatus;
 
       switch (emergencyFloor.emergencyStatus) {
         case 'CRITICAL':
-          fill = '#dc2626';
+          fill = '#dc2626'; // Red
           edge = '#ef4444';
+          labelFill = '#fca5a5';
+          labelBg = '#450a0a';
+          statusTag = '🔥 CRITICAL (P1)';
           break;
         case 'AT_RISK':
-          fill = '#ea580c';
+          fill = '#ea580c'; // Orange
           edge = '#f97316';
+          labelFill = '#fed7aa';
+          labelBg = '#431407';
+          statusTag = 'AT RISK (P2)';
           break;
         case 'AFFECTED':
-          fill = '#d97706';
+          fill = '#d97706'; // Amber
           edge = '#fbbf24';
+          labelFill = '#fde68a';
+          labelBg = '#422006';
+          statusTag = 'AFFECTED (P3)';
           break;
         case 'SAFE':
         default:
-          fill = '#0284c7';
+          fill = '#0284c7'; // Sky/Cyan
           edge = '#38bdf8';
+          labelFill = '#a5f3fc';
+          labelBg = '#083344';
+          statusTag = 'CLEARED (P4)';
           break;
       }
 
       if (record.floor.kind === 'basement') {
         fill = '#0f2b38';
         edge = '#06b6d4';
+        statusTag = 'VAULT (P3)';
       }
 
       const isSelected = floorId === this.currentSelection.floorId;
       if (isSelected) {
         edge = '#ffffff';
+        labelBg = '#1e293b';
       }
 
       if (record.entity.box) {
@@ -285,6 +324,25 @@ export class CesiumSceneAdapter implements ICesiumAdapter {
         (record.entity.box.outlineColor as Cesium.ConstantProperty) =
           new Cesium.ConstantProperty(
             Cesium.Color.fromCssColorString(edge).withAlpha(isSelected ? 1.0 : 0.8),
+          );
+      }
+
+      // Update 3D Floor Label Badge
+      if (record.labelEntity?.label) {
+        const floorPrefix =
+          record.floor.kind === 'basement'
+            ? `B0${Math.abs(record.floor.levelIndex)}`
+            : record.floor.kind === 'ground'
+            ? 'Ground'
+            : `F0${record.floor.levelIndex}`;
+
+        (record.labelEntity.label.text as Cesium.ConstantProperty) =
+          new Cesium.ConstantProperty(`${floorPrefix} • ${statusTag}`);
+        (record.labelEntity.label.fillColor as Cesium.ConstantProperty) =
+          new Cesium.ConstantProperty(Cesium.Color.fromCssColorString(labelFill));
+        (record.labelEntity.label.backgroundColor as Cesium.ConstantProperty) =
+          new Cesium.ConstantProperty(
+            Cesium.Color.fromCssColorString(labelBg).withAlpha(0.95),
           );
       }
     }
