@@ -134,16 +134,19 @@ export function CreatePropertyModal({
         const result = await defaultDetector.detectFootprint(img);
         setDetectedFootprint(result);
 
-        // Calibrate physical dimensions if aspect ratio matches reference ~1.24
-        if (result.aspectRatio > 0) {
-          const isNearRef = Math.abs(result.aspectRatio - 18.0 / 14.5) < 0.15;
-          const width = isNearRef ? 18.0 : params.footprintWidth;
-          const depth = isNearRef ? 14.5 : Number((width / result.aspectRatio).toFixed(1));
-
+        if (imgSrc.isPreset) {
+          // Reference blueprint is explicitly 18.00m x 14.50m (261.00 sq.m = 2,809 sq.ft)
           setParams((prev) => ({
             ...prev,
-            footprintWidth: width,
-            footprintDepth: depth,
+            footprintWidth: 18.0,
+            footprintDepth: 14.5,
+          }));
+        } else if (result.aspectRatio > 0) {
+          const isNearRef = Math.abs(result.aspectRatio - 18.0 / 14.5) < 0.15;
+          setParams((prev) => ({
+            ...prev,
+            footprintWidth: isNearRef ? 18.0 : prev.footprintWidth,
+            footprintDepth: isNearRef ? 14.5 : Number((prev.footprintWidth / result.aspectRatio).toFixed(1)),
           }));
         }
 
